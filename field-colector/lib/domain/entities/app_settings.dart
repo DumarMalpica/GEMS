@@ -9,11 +9,22 @@ class AppSettings {
     this.mapType = MapDisplayType.standard,
   });
 
+  /// Nivel de precisión del GPS deseado.
   final GpsAccuracyLevel gpsAccuracy;
+
+  /// Intervalo en segundos para la actualización de la ubicación.
   final int locationUpdateIntervalSeconds;
+
+  /// Formato de coordenadas (decimal o grados/minutos/segundos).
   final CoordinateFormat coordinateFormat;
+
+  /// Nivel de zoom por defecto al abrir el mapa.
   final double defaultZoom;
+
+  /// Determina si se debe mostrar el marcador de ubicación actual del usuario.
   final bool showLocationMarker;
+
+  /// Tipo de visualización del mapa (estándar, relieve, satélite).
   final MapDisplayType mapType;
 
   AppSettings copyWith({

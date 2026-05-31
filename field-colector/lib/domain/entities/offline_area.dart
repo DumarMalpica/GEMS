@@ -1,17 +1,38 @@
 // lib/core/map_downloader/domain/entities/offline_area.dart
 
+/// Estado actual del proceso de descarga de un área para uso offline.
 enum AreaDownloadStatus { pending, downloading, completed, failed }
 
+/// Representa una zona del mapa descargada para su uso sin conexión a internet.
 class OfflineArea {
+  /// Identificador único del área descargada.
   final String id;
-  final String name; // Ej: "Transecto Biológico Zona A", "Punto Geológico Sur"
+
+  /// Nombre legible asignado al área (Ej: "Transecto Biológico Zona A").
+  final String name;
+
+  /// Latitud central del área de descarga.
   final double centerLat;
+
+  /// Longitud central del área de descarga.
   final double centerLon;
+
+  /// Radio en kilómetros que abarca el área descargada desde el centro.
   final double radiusInKilometers;
+
+  /// Nivel de zoom mínimo guardado.
   final int minZoom;
+
+  /// Nivel de zoom máximo guardado.
   final int maxZoom;
+
+  /// Estado de la descarga de los mapas.
   final AreaDownloadStatus status;
+
+  /// Fecha de creación o de inicio de descarga.
   final DateTime createdAt;
+
+  /// Tamaño estimado o real de los datos descargados (en bytes).
   final int estimatedSizeInBytes;
 
   const OfflineArea({
