@@ -16,6 +16,11 @@ import '../../domain/entities/soil_record.dart';
 import '../../domain/entities/vegetation_record.dart';
 import '../../domain/entities/water_record.dart';
 
+/// Servicio encargado de generar archivos Excel con los registros recolectados.
+///
+/// Utiliza los puertos remotos para obtener los datos de la base de datos de 
+/// Firebase correspondientes a cada tipo de registro (aves, rocas, suelos, etc.)
+/// y los formatea en hojas separadas dentro de un único archivo de Excel (.xlsx).
 class ExportService {
   final BirdRecordRemotePort birdPort;
   final RockRecordRemotePort rockPort;
@@ -24,6 +29,10 @@ class ExportService {
   final WaterRecordRemotePort waterPort;
   final SocialRecordRemotePort socialPort;
 
+  /// Constructor de [ExportService].
+  ///
+  /// Requiere inyección de dependencias de todos los puertos remotos 
+  /// necesarios para consultar los registros desde el backend (Firebase).
   ExportService({
     required this.birdPort,
     required this.rockPort,
@@ -33,6 +42,8 @@ class ExportService {
     required this.socialPort,
   });
 
+  /// Determina si el filtrado por fechas debe realizarse en el cliente de la aplicación.
+  /// 
   /// Firestore needs composite index for equality + date range on same query.
   /// When [outingId] or [userId] is set, fetch without dates and filter in app.
   static bool _filterDatesOnClient({
@@ -45,12 +56,16 @@ class ExportService {
         (startDate != null || endDate != null);
   }
 
+  /// Retorna el inicio del día (00:00:00) para una fecha dada.
   static DateTime _startOfDay(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
+  /// Retorna el final del día (23:59:59.999) para una fecha dada.
   static DateTime _endOfDay(DateTime date) =>
       DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
 
+  /// Verifica si una fecha de registro [recordedAt] se encuentra dentro del 
+  /// rango definido por [startDate] y [endDate].
   static bool _inDateRange(
     DateTime recordedAt,
     DateTime? startDate,
@@ -65,6 +80,10 @@ class ExportService {
     return true;
   }
 
+  /// Aplica un filtro de fecha en memoria local (cliente) a una lista de [records].
+  ///
+  /// Toma cada registro y evalúa mediante la función [recordedAt] si su fecha 
+  /// corresponde al rango [startDate] y [endDate].
   static List<T> _applyDateFilter<T>(
     List<T> records,
     DateTime Function(T) recordedAt,
@@ -78,6 +97,16 @@ class ExportService {
         .toList();
   }
 
+  /// Genera un archivo Excel agrupando todos los tipos de registros en diferentes hojas.
+  /// 
+  /// Si se provee [outingId] o [userId], los datos consultados al backend pertenecerán
+  /// exclusivamente a esa salida o a ese usuario.
+  /// 
+  /// El filtro de fechas ([startDate] y [endDate]) puede resolverse localmente
+  /// o en la base de datos remota dependiendo del comportamiento de los índices.
+  /// El archivo resultante se guarda temporalmente con el prefijo [fileNamePrefix].
+  /// 
+  /// Retorna la ruta (path) absoluto del archivo generado, o null en caso de error.
   Future<String?> generateExcel({String? outingId, String? userId, DateTime? startDate, DateTime? endDate, required String fileNamePrefix}) async {
     final rangeStart =
         startDate != null ? _startOfDay(startDate) : null;
