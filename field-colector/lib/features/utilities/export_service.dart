@@ -114,11 +114,12 @@ class ExportService {
           TextCellValue('Época'), TextCellValue('Lugar'), TextCellValue('ID Especie'),
           TextCellValue('Tipo Ave'), TextCellValue('Estatus'), TextCellValue('Cantidad'),
           TextCellValue('Comportamiento'), TextCellValue('Actividad'), TextCellValue('Hábitat'),
-          TextCellValue('Forrajeo'), TextCellValue('Amenazas'), TextCellValue('Fotos/ID Cámara')
+          TextCellValue('Forrajeo'), TextCellValue('Amenazas'), TextCellValue('Fotos/ID Cámara'), TextCellValue('Links Fotos')
         ]);
 
         for (BirdRecord b in birds) {
-          String fotosResumen = b.photos.join(' | ');
+          String fotosResumen = b.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = b.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(b.id), TextCellValue(b.recordedAt.toIso8601String()), DoubleCellValue(b.coordinates.latitude),
             DoubleCellValue(b.coordinates.longitude), TextCellValue(b.department), TextCellValue(b.municipality),
@@ -126,7 +127,7 @@ class ExportService {
             TextCellValue(b.birdType), TextCellValue(b.migratorStatus), IntCellValue(b.individualCount),
             TextCellValue(b.behavior), TextCellValue(b.activity), TextCellValue(b.habitat.join(', ')),
             TextCellValue(b.foragingType.join(', ')), TextCellValue(b.observedThreats.join(', ')),
-            TextCellValue(fotosResumen)
+            TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -147,18 +148,19 @@ class ExportService {
           TextCellValue('Tipo Roca'), TextCellValue('Color'), TextCellValue('Textura'),
           TextCellValue('Estructura'), TextCellValue('Dureza'), TextCellValue('Minerales'),
           TextCellValue('Tiene Muestra'), TextCellValue('ID Muestra'), TextCellValue('Profundidad (cm)'),
-          TextCellValue('Observaciones'), TextCellValue('Fotos')
+          TextCellValue('Observaciones'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (RockRecord r in rocks) {
-          String fotosResumen = r.photos.join(' | ');
+          String fotosResumen = r.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = r.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(r.id), TextCellValue(r.recordedAt.toIso8601String()), DoubleCellValue(r.coordinates.latitude), DoubleCellValue(r.coordinates.longitude),
             TextCellValue(r.rockType), TextCellValue(r.dominantColor), TextCellValue(r.texture.join(', ')),
             TextCellValue(r.structure), TextCellValue(r.hardness), TextCellValue(r.minerals),
             TextCellValue(r.hasSample ? 'Sí' : 'No'), TextCellValue(r.sampleId ?? ''),
             r.sampleDepth != null ? DoubleCellValue(r.sampleDepth!) : TextCellValue(''),
-            TextCellValue(r.observations), TextCellValue(fotosResumen)
+            TextCellValue(r.observations), TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -179,18 +181,19 @@ class ExportService {
           TextCellValue('Tipos Suelo'), TextCellValue('Color'), TextCellValue('Variabilidad Color'),
           TextCellValue('Textura'), TextCellValue('Estructura'), TextCellValue('Perfil'),
           TextCellValue('Tiene Muestra'), TextCellValue('ID Muestra'), TextCellValue('Profundidad (cm)'),
-          TextCellValue('Observaciones'), TextCellValue('Fotos')
+          TextCellValue('Observaciones'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (SoilRecord s in soils) {
-          String fotosResumen = s.photos.join(' | ');
+          String fotosResumen = s.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = s.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(s.id), TextCellValue(s.recordedAt.toIso8601String()), DoubleCellValue(s.coordinates.latitude), DoubleCellValue(s.coordinates.longitude),
             TextCellValue(s.soilTypes.join(', ')), TextCellValue(s.dominantColor), TextCellValue(s.colorVariability),
             TextCellValue(s.texture.join(', ')), TextCellValue(s.structure), TextCellValue(s.soilProfile),
             TextCellValue(s.hasSample ? 'Sí' : 'No'), TextCellValue(s.sampleId ?? ''),
             s.sampleDepth != null ? DoubleCellValue(s.sampleDepth!) : TextCellValue(''),
-            TextCellValue(s.observations), TextCellValue(fotosResumen)
+            TextCellValue(s.observations), TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -210,11 +213,12 @@ class ExportService {
           TextCellValue('ID Registro'), TextCellValue('Fecha'), TextCellValue('Latitud'), TextCellValue('Longitud'),
           TextCellValue('ID Especie'), TextCellValue('Nombre Común'), TextCellValue('Origen'), TextCellValue('Tipo Vegetación'),
           TextCellValue('Altura (m)'), TextCellValue('Diámetro (m)'), TextCellValue('Fisionomía'), TextCellValue('Cobertura %'),
-          TextCellValue('Condición'), TextCellValue('Pirogenia'), TextCellValue('Suelo/Hojarasca'), TextCellValue('Fotos')
+          TextCellValue('Condición'), TextCellValue('Pirogenia'), TextCellValue('Suelo/Hojarasca'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (VegetationRecord v in veg) {
-          String fotosResumen = v.photos.join(' | ');
+          String fotosResumen = v.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = v.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(v.id), TextCellValue(v.recordedAt.toIso8601String()), DoubleCellValue(v.coordinates.latitude), DoubleCellValue(v.coordinates.longitude),
             TextCellValue(v.speciesId), TextCellValue(v.commonName), TextCellValue(v.origin), TextCellValue(v.vegetationType),
@@ -222,7 +226,7 @@ class ExportService {
             v.diameter != null ? DoubleCellValue(v.diameter!) : TextCellValue(''),
             TextCellValue(v.physiognomy), v.coveragePercent != null ? IntCellValue(v.coveragePercent!) : TextCellValue(''),
             TextCellValue(v.physicalCondition), TextCellValue(v.hasPyrogeny ? 'Sí' : 'No'), TextCellValue(v.groundCover),
-            TextCellValue(fotosResumen)
+            TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -244,11 +248,12 @@ class ExportService {
           TextCellValue('pH'), TextCellValue('Temp (°C)'), TextCellValue('Conductividad'), TextCellValue('OD (mg/L)'),
           TextCellValue('Turbidez'), TextCellValue('Color Aparente'), TextCellValue('Olor'), TextCellValue('Tiene Muestra'),
           TextCellValue('ID Muestra'), TextCellValue('Objetivo Muestreo'), TextCellValue('Tipo Muestra'),
-          TextCellValue('Recipiente'), TextCellValue('Fotos')
+          TextCellValue('Recipiente'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (WaterRecord w in water) {
-          String fotosResumen = w.photos.join(' | ');
+          String fotosResumen = w.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = w.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(w.id), TextCellValue(w.recordedAt.toIso8601String()), DoubleCellValue(w.coordinates.latitude), DoubleCellValue(w.coordinates.longitude),
             TextCellValue(w.weatherConditions), TextCellValue(w.visibility), TextCellValue(w.access), TextCellValue(w.samplingDepth),
@@ -260,7 +265,7 @@ class ExportService {
             TextCellValue(w.apparentColor), TextCellValue(w.odor), TextCellValue(w.hasSample ? 'Sí' : 'No'),
             TextCellValue(w.sampleId ?? ''), TextCellValue(w.samplingGoal ?? ''),
             TextCellValue(w.sampleType ?? ''), TextCellValue(w.container ?? ''), // <-- Corregido a w.container
-            TextCellValue(fotosResumen)
+            TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
