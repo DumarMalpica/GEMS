@@ -2,12 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/ports/outing_remote_port.dart';
 
+/// Adaptador concreto para operaciones de Outing en Firestore.
 class FirebaseOutingAdapter implements OutingRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'outings';
 
   FirebaseOutingAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de Outing en Firestore y sincroniza sus datos.
   @override
   Future<void> saveOuting(Outing item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -29,16 +31,19 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     });
   }
 
+  /// Actualiza un registro existente de Outing en Firestore con los nuevos datos.
   @override
   Future<void> updateOuting(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de Outing en Firestore mediante su id.
   @override
   Future<void> deleteOuting(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de [Outing] por su [id]. Retorna null si no existe.
   @override
   Future<Outing?> getOutingById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -46,6 +51,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     return _mapSnapshotToOuting(doc);
   }
 
+  /// Obtiene de forma paginada un listado de expediciones.
   @override
   Future<OutingSearchResult> getOutings({
     int limit = 20,
@@ -65,6 +71,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     );
   }
 
+  /// Obtiene de forma paginada expediciones creadas por un usuario específico ([userId]).
   @override
   Future<OutingSearchResult> getOutingsByCreatorId(String userId, {
     int limit = 20,
@@ -86,6 +93,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     );
   }
 
+  /// Obtiene de forma paginada expediciones en las que un usuario ([userId]) participa.
   @override
   Future<OutingSearchResult> getOutingsByParticipantId(
     String userId, {
@@ -116,6 +124,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
         .toList();
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `Outing`.
   Outing _mapSnapshotToOuting(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Outing(
@@ -139,6 +148,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     );
   }
 
+  /// Añade un usuario pendiente de confirmación a una salida.
   @override
   Future<void> addPendingUserToOuting(String outingId, PendingUser user) async {
     await _firestore.collection(_collection).doc(outingId).update({
@@ -146,6 +156,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     });
   }
 
+  /// Elimina un usuario pendiente de confirmación de una salida.
   @override
   Future<void> removePendingUserFromOuting(String outingId, String userId) async {
     final doc = await _firestore.collection(_collection).doc(outingId).get();
@@ -162,6 +173,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
     });
   }
 
+  /// Obtiene la lista de usuarios pendientes (invitados sin confirmar) de una salida.
   @override
   Future<List<PendingUser>> getPendingUsersByOutingId(String outingId) async {
     final doc = await _firestore.collection(_collection).doc(outingId).get();

@@ -5,12 +5,14 @@ import '../../domain/entities/social_record.dart';
 import '../../domain/ports/social_record_remote_port.dart';
 import 'record_photo_sync_helper.dart';
 
+/// Adaptador concreto para operaciones de SocialRecord en Firestore.
 class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'social_records';
 
   FirebaseSocialRecordAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de SocialRecord en Firestore y sincroniza sus datos.
   @override
   Future<void> saveSocialRecord(SocialRecord item) async {
     await _firestore.collection(_collection).doc(item.id).set(_toFirestore(item));
@@ -26,16 +28,19 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
     }
   }
 
+  /// Actualiza un registro existente de SocialRecord en Firestore con los nuevos datos.
   @override
   Future<void> updateSocialRecord(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de SocialRecord en Firestore mediante su id.
   @override
   Future<void> deleteSocialRecord(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de [SocialRecord] por su [id]. Retorna null si no existe.
   @override
   Future<SocialRecord?> getSocialRecordById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -43,6 +48,7 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
     return _mapSnapshotToSocialRecord(doc);
   }
 
+  /// Obtiene de forma paginada un listado de registros sociales (encuestas).
   @override
   Future<SocialRecordSearchResult> getSocialRecords({
     int limit = 20,
@@ -59,6 +65,7 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
     );
   }
 
+  /// Consulta todos los registros sociales filtrables para exportación a Excel.
   @override
   Future<List<SocialRecord>> getSocialRecordsForExport({
     String? outingId,
@@ -88,6 +95,7 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
     return snapshot.docs.map(_mapSnapshotToSocialRecord).toList();
   }
 
+  /// Stream para observar en tiempo real los registros sociales de una expedición ([outingId]).
   @override
   Stream<List<SocialRecord>> watchSocialRecordsByOuting(String outingId) {
     return _firestore
@@ -155,6 +163,7 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
             .toList(),
       };
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `SocialRecord`.
   SocialRecord _mapSnapshotToSocialRecord(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final coord = data['coordinates'] as Map<String, dynamic>? ?? {};

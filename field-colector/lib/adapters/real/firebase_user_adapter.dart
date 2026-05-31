@@ -3,12 +3,14 @@ import '../../domain/entities/user.dart';
 import '../../domain/entities/role.dart';
 import '../../domain/ports/user_remote_port.dart';
 
+/// Adaptador concreto para operaciones de User en Firestore.
 class FirebaseUserAdapter implements UserRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'users';
 
   FirebaseUserAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de User en Firestore y sincroniza sus datos.
   @override
   Future<void> saveUser(User user) async {
     await _firestore.collection(_collection).doc(user.id).set({
@@ -20,16 +22,19 @@ class FirebaseUserAdapter implements UserRemotePort {
     });
   }
 
+  /// Actualiza un registro existente de User en Firestore con los nuevos datos.
   @override
   Future<void> updateUser(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de User en Firestore mediante su id.
   @override
   Future<void> deleteUser(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un usuario ([User]) por su [id]. Retorna null si no existe.
   @override
   Future<User?> getUserById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -37,6 +42,7 @@ class FirebaseUserAdapter implements UserRemotePort {
     return _mapSnapshotToUser(doc);
   }
 
+  /// Recupera un usuario ([User]) por su [email]. Retorna null si no existe.
   @override
   Future<User?> getUserByEmail(String email) async {
     final snapshot = await _firestore.collection(_collection)
@@ -72,6 +78,7 @@ class FirebaseUserAdapter implements UserRemotePort {
     );
   }
 
+  /// Obtiene de forma paginada un listado de usuarios filtrados por [roleString].
   @override
   Future<UserSearchResult> getUsersByRole(
       String roleString, {
@@ -95,6 +102,7 @@ class FirebaseUserAdapter implements UserRemotePort {
     );
   }
 
+  /// Obtiene de forma paginada un listado de todos los usuarios registrados.
   @override
   Future<UserSearchResult> getAllUsers({
     int limit = 20,
@@ -117,6 +125,7 @@ class FirebaseUserAdapter implements UserRemotePort {
   }
 
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `User`.
   User _mapSnapshotToUser(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return User(

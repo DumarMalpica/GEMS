@@ -7,12 +7,24 @@ import '../../domain/ports/user_local_port.dart';
 /// Ventana de sesión offline persistida (no cambia TTL del JWT de Firebase).
 const Duration _persistedSessionValidity = Duration(days: 30);
 
+/// Adaptador concreto que implementa [AuthPort] utilizando Firebase Authentication.
+/// 
+/// Esta clase encapsula toda la interacción con el SDK de Firebase Auth, manejando
+/// el inicio de sesión, registro, cierre de sesión y la validación de la sesión actual.
 class FirebaseAuthAdapter implements AuthPort {
+  /// Instancia de FirebaseAuth inyectada para realizar las operaciones.
   final fb.FirebaseAuth _firebaseAuth;
+
+  /// Puerto local inyectado para persistir la información del usuario en el dispositivo.
   final UserLocalPort _userLocalPort;
 
+  /// Crea una nueva instancia de [FirebaseAuthAdapter] con las dependencias requeridas.
   FirebaseAuthAdapter(this._firebaseAuth, this._userLocalPort);
 
+  /// Inicia sesión utilizando un correo electrónico ([email]) y una contraseña ([password]).
+  /// 
+  /// Si es exitoso, crea un objeto [User] de dominio, lo guarda localmente y lo retorna.
+  /// Si falla, lanza un [AuthException] traducido del error original de Firebase.
   @override
   Future<User> login(String email, String password) async {
     try {
@@ -54,6 +66,10 @@ class FirebaseAuthAdapter implements AuthPort {
     }
   }
 
+  /// Registra un nuevo usuario en Firebase Auth con los datos proporcionados.
+  /// 
+  /// El [fullName] se establece como el display name en Firebase. Una vez creado,
+  /// el usuario se persiste de manera local y se retorna.
   @override
   Future<User> register({
     required String email,
@@ -95,12 +111,17 @@ class FirebaseAuthAdapter implements AuthPort {
     }
   }
 
+  /// Cierra la sesión activa en Firebase y limpia los datos locales del usuario.
   @override
   Future<void> logout() async {
     await _firebaseAuth.signOut();
     await _userLocalPort.clearLocalUser();
   }
 
+  /// Obtiene el usuario actualmente autenticado en Firebase (si lo hay).
+  /// 
+  /// Si el token aún es válido, renueva la fecha de expiración de la sesión local
+  /// y retorna el [User]. Retorna null si no hay sesión activa.
   @override
   Future<User?> getCurrentUser() async {
     final fbUser = _firebaseAuth.currentUser;
@@ -124,6 +145,7 @@ class FirebaseAuthAdapter implements AuthPort {
     }
   }
 
+  /// Valida si existe una sesión offline válida comprobando el token guardado localmente.
   @override
   Future<User?> validateOfflineSession() async {
     final localUser = await _userLocalPort.getLocalUser();
@@ -134,6 +156,8 @@ class FirebaseAuthAdapter implements AuthPort {
     return null;
   }
 
+  /// Convierte las excepciones específicas de Firebase Auth ([fb.FirebaseAuthException]) 
+  /// a excepciones de dominio controladas ([AuthException]).
   AuthException _handleFirebaseError(fb.FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
