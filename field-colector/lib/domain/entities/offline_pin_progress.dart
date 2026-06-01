@@ -18,7 +18,12 @@ class OfflinePinProgress {
     this.message,
   });
 
+  /// Identificador de la expedición que se está anclando para uso offline.
   final String outingId;
+
+  /// Estado actual del proceso de anclaje (descarga).
   final OfflinePinState state;
+
+  /// Mensaje descriptivo (opcional), usualmente utilizado para mostrar errores o detalles de progreso.
   final String? message;
 }

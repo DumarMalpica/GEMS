@@ -6,12 +6,14 @@ import '../../domain/entities/coordinate.dart';
 import '../../domain/entities/plot.dart';
 import 'record_photo_sync_helper.dart';
 
+/// Adaptador concreto para operaciones de VegetationRecord en Firestore.
 class FirebaseVegetationRecordAdapter implements VegetationRecordRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'vegetation_records';
 
   FirebaseVegetationRecordAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de VegetationRecord en Firestore y sincroniza sus datos.
   @override
   Future<void> saveVegetationRecord(VegetationRecord item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -67,16 +69,19 @@ class FirebaseVegetationRecordAdapter implements VegetationRecordRemotePort {
     }
   }
 
+  /// Actualiza un registro existente de VegetationRecord en Firestore con los nuevos datos.
   @override
   Future<void> updateVegetationRecord(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de VegetationRecord en Firestore mediante su id.
   @override
   Future<void> deleteVegetationRecord(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de [VegetationRecord] por su [id]. Retorna null si no existe.
   @override
   Future<VegetationRecord?> getVegetationRecordById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -84,6 +89,7 @@ class FirebaseVegetationRecordAdapter implements VegetationRecordRemotePort {
     return _mapSnapshotToVegetationRecord(doc);
   }
 
+  /// Obtiene de forma paginada un listado de registros de vegetación.
   @override
   Future<VegetationRecordSearchResult> getVegetationRecords({
     int limit = 20,
@@ -103,6 +109,7 @@ class FirebaseVegetationRecordAdapter implements VegetationRecordRemotePort {
     );
   }
 
+  /// Consulta todos los registros de vegetación filtrables para exportación a Excel.
   @override
   Future<List<VegetationRecord>> getVegetationRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
     Query query = _firestore.collection(_collection);
@@ -124,6 +131,7 @@ class FirebaseVegetationRecordAdapter implements VegetationRecordRemotePort {
     return snapshot.docs.map((doc) => _mapSnapshotToVegetationRecord(doc)).toList();
   }
 
+  /// Stream para observar en tiempo real los registros de vegetación de una expedición ([outingId]).
   @override
   Stream<List<VegetationRecord>> watchVegetationRecordsByOuting(String outingId) {
     return _firestore
@@ -133,6 +141,7 @@ class FirebaseVegetationRecordAdapter implements VegetationRecordRemotePort {
         .map((snap) => snap.docs.map(_mapSnapshotToVegetationRecord).toList());
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `VegetationRecord`.
   VegetationRecord _mapSnapshotToVegetationRecord(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final coord = data['coordinates'] as Map<String, dynamic>? ?? {};

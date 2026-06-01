@@ -2,12 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/species.dart';
 import '../../domain/ports/species_remote_port.dart';
 
+/// Adaptador concreto para operaciones de Species en Firestore.
 class FirebaseSpeciesAdapter implements SpeciesRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'speciess';
 
   FirebaseSpeciesAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de Species en Firestore y sincroniza sus datos.
   @override
   Future<void> saveSpecies(Species item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -19,16 +21,19 @@ class FirebaseSpeciesAdapter implements SpeciesRemotePort {
     });
   }
 
+  /// Actualiza un registro existente de Species en Firestore con los nuevos datos.
   @override
   Future<void> updateSpecies(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de Species en Firestore mediante su id.
   @override
   Future<void> deleteSpecies(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera una especie ([Species]) por su [id]. Retorna null si no existe.
   @override
   Future<Species?> getSpeciesById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -36,6 +41,7 @@ class FirebaseSpeciesAdapter implements SpeciesRemotePort {
     return _mapSnapshotToSpecies(doc);
   }
 
+  /// Obtiene de forma paginada un listado de especies.
   @override
   Future<SpeciesSearchResult> getSpeciess({
     int limit = 20,
@@ -55,6 +61,7 @@ class FirebaseSpeciesAdapter implements SpeciesRemotePort {
     );
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `Species`.
   Species _mapSnapshotToSpecies(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Species(

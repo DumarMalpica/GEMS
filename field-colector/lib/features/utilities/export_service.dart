@@ -16,6 +16,11 @@ import '../../domain/entities/soil_record.dart';
 import '../../domain/entities/vegetation_record.dart';
 import '../../domain/entities/water_record.dart';
 
+/// Servicio encargado de generar archivos Excel con los registros recolectados.
+///
+/// Utiliza los puertos remotos para obtener los datos de la base de datos de 
+/// Firebase correspondientes a cada tipo de registro (aves, rocas, suelos, etc.)
+/// y los formatea en hojas separadas dentro de un único archivo de Excel (.xlsx).
 class ExportService {
   final BirdRecordRemotePort birdPort;
   final RockRecordRemotePort rockPort;
@@ -24,6 +29,10 @@ class ExportService {
   final WaterRecordRemotePort waterPort;
   final SocialRecordRemotePort socialPort;
 
+  /// Constructor de [ExportService].
+  ///
+  /// Requiere inyección de dependencias de todos los puertos remotos 
+  /// necesarios para consultar los registros desde el backend (Firebase).
   ExportService({
     required this.birdPort,
     required this.rockPort,
@@ -33,6 +42,8 @@ class ExportService {
     required this.socialPort,
   });
 
+  /// Determina si el filtrado por fechas debe realizarse en el cliente de la aplicación.
+  /// 
   /// Firestore needs composite index for equality + date range on same query.
   /// When [outingId] or [userId] is set, fetch without dates and filter in app.
   static bool _filterDatesOnClient({
@@ -45,12 +56,16 @@ class ExportService {
         (startDate != null || endDate != null);
   }
 
+  /// Retorna el inicio del día (00:00:00) para una fecha dada.
   static DateTime _startOfDay(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
+  /// Retorna el final del día (23:59:59.999) para una fecha dada.
   static DateTime _endOfDay(DateTime date) =>
       DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
 
+  /// Verifica si una fecha de registro [recordedAt] se encuentra dentro del 
+  /// rango definido por [startDate] y [endDate].
   static bool _inDateRange(
     DateTime recordedAt,
     DateTime? startDate,
@@ -65,6 +80,10 @@ class ExportService {
     return true;
   }
 
+  /// Aplica un filtro de fecha en memoria local (cliente) a una lista de [records].
+  ///
+  /// Toma cada registro y evalúa mediante la función [recordedAt] si su fecha 
+  /// corresponde al rango [startDate] y [endDate].
   static List<T> _applyDateFilter<T>(
     List<T> records,
     DateTime Function(T) recordedAt,
@@ -78,6 +97,16 @@ class ExportService {
         .toList();
   }
 
+  /// Genera un archivo Excel agrupando todos los tipos de registros en diferentes hojas.
+  /// 
+  /// Si se provee [outingId] o [userId], los datos consultados al backend pertenecerán
+  /// exclusivamente a esa salida o a ese usuario.
+  /// 
+  /// El filtro de fechas ([startDate] y [endDate]) puede resolverse localmente
+  /// o en la base de datos remota dependiendo del comportamiento de los índices.
+  /// El archivo resultante se guarda temporalmente con el prefijo [fileNamePrefix].
+  /// 
+  /// Retorna la ruta (path) absoluto del archivo generado, o null en caso de error.
   Future<String?> generateExcel({String? outingId, String? userId, DateTime? startDate, DateTime? endDate, required String fileNamePrefix}) async {
     final rangeStart =
         startDate != null ? _startOfDay(startDate) : null;
@@ -114,11 +143,12 @@ class ExportService {
           TextCellValue('Época'), TextCellValue('Lugar'), TextCellValue('ID Especie'),
           TextCellValue('Tipo Ave'), TextCellValue('Estatus'), TextCellValue('Cantidad'),
           TextCellValue('Comportamiento'), TextCellValue('Actividad'), TextCellValue('Hábitat'),
-          TextCellValue('Forrajeo'), TextCellValue('Amenazas'), TextCellValue('Fotos/ID Cámara')
+          TextCellValue('Forrajeo'), TextCellValue('Amenazas'), TextCellValue('Fotos/ID Cámara'), TextCellValue('Links Fotos')
         ]);
 
         for (BirdRecord b in birds) {
-          String fotosResumen = b.photos.join(' | ');
+          String fotosResumen = b.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = b.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(b.id), TextCellValue(b.recordedAt.toIso8601String()), DoubleCellValue(b.coordinates.latitude),
             DoubleCellValue(b.coordinates.longitude), TextCellValue(b.department), TextCellValue(b.municipality),
@@ -126,7 +156,7 @@ class ExportService {
             TextCellValue(b.birdType), TextCellValue(b.migratorStatus), IntCellValue(b.individualCount),
             TextCellValue(b.behavior), TextCellValue(b.activity), TextCellValue(b.habitat.join(', ')),
             TextCellValue(b.foragingType.join(', ')), TextCellValue(b.observedThreats.join(', ')),
-            TextCellValue(fotosResumen)
+            TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -147,18 +177,19 @@ class ExportService {
           TextCellValue('Tipo Roca'), TextCellValue('Color'), TextCellValue('Textura'),
           TextCellValue('Estructura'), TextCellValue('Dureza'), TextCellValue('Minerales'),
           TextCellValue('Tiene Muestra'), TextCellValue('ID Muestra'), TextCellValue('Profundidad (cm)'),
-          TextCellValue('Observaciones'), TextCellValue('Fotos')
+          TextCellValue('Observaciones'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (RockRecord r in rocks) {
-          String fotosResumen = r.photos.join(' | ');
+          String fotosResumen = r.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = r.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(r.id), TextCellValue(r.recordedAt.toIso8601String()), DoubleCellValue(r.coordinates.latitude), DoubleCellValue(r.coordinates.longitude),
             TextCellValue(r.rockType), TextCellValue(r.dominantColor), TextCellValue(r.texture.join(', ')),
             TextCellValue(r.structure), TextCellValue(r.hardness), TextCellValue(r.minerals),
             TextCellValue(r.hasSample ? 'Sí' : 'No'), TextCellValue(r.sampleId ?? ''),
             r.sampleDepth != null ? DoubleCellValue(r.sampleDepth!) : TextCellValue(''),
-            TextCellValue(r.observations), TextCellValue(fotosResumen)
+            TextCellValue(r.observations), TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -179,18 +210,19 @@ class ExportService {
           TextCellValue('Tipos Suelo'), TextCellValue('Color'), TextCellValue('Variabilidad Color'),
           TextCellValue('Textura'), TextCellValue('Estructura'), TextCellValue('Perfil'),
           TextCellValue('Tiene Muestra'), TextCellValue('ID Muestra'), TextCellValue('Profundidad (cm)'),
-          TextCellValue('Observaciones'), TextCellValue('Fotos')
+          TextCellValue('Observaciones'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (SoilRecord s in soils) {
-          String fotosResumen = s.photos.join(' | ');
+          String fotosResumen = s.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = s.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(s.id), TextCellValue(s.recordedAt.toIso8601String()), DoubleCellValue(s.coordinates.latitude), DoubleCellValue(s.coordinates.longitude),
             TextCellValue(s.soilTypes.join(', ')), TextCellValue(s.dominantColor), TextCellValue(s.colorVariability),
             TextCellValue(s.texture.join(', ')), TextCellValue(s.structure), TextCellValue(s.soilProfile),
             TextCellValue(s.hasSample ? 'Sí' : 'No'), TextCellValue(s.sampleId ?? ''),
             s.sampleDepth != null ? DoubleCellValue(s.sampleDepth!) : TextCellValue(''),
-            TextCellValue(s.observations), TextCellValue(fotosResumen)
+            TextCellValue(s.observations), TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -210,11 +242,12 @@ class ExportService {
           TextCellValue('ID Registro'), TextCellValue('Fecha'), TextCellValue('Latitud'), TextCellValue('Longitud'),
           TextCellValue('ID Especie'), TextCellValue('Nombre Común'), TextCellValue('Origen'), TextCellValue('Tipo Vegetación'),
           TextCellValue('Altura (m)'), TextCellValue('Diámetro (m)'), TextCellValue('Fisionomía'), TextCellValue('Cobertura %'),
-          TextCellValue('Condición'), TextCellValue('Pirogenia'), TextCellValue('Suelo/Hojarasca'), TextCellValue('Fotos')
+          TextCellValue('Condición'), TextCellValue('Pirogenia'), TextCellValue('Suelo/Hojarasca'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (VegetationRecord v in veg) {
-          String fotosResumen = v.photos.join(' | ');
+          String fotosResumen = v.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = v.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(v.id), TextCellValue(v.recordedAt.toIso8601String()), DoubleCellValue(v.coordinates.latitude), DoubleCellValue(v.coordinates.longitude),
             TextCellValue(v.speciesId), TextCellValue(v.commonName), TextCellValue(v.origin), TextCellValue(v.vegetationType),
@@ -222,7 +255,7 @@ class ExportService {
             v.diameter != null ? DoubleCellValue(v.diameter!) : TextCellValue(''),
             TextCellValue(v.physiognomy), v.coveragePercent != null ? IntCellValue(v.coveragePercent!) : TextCellValue(''),
             TextCellValue(v.physicalCondition), TextCellValue(v.hasPyrogeny ? 'Sí' : 'No'), TextCellValue(v.groundCover),
-            TextCellValue(fotosResumen)
+            TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }
@@ -244,11 +277,12 @@ class ExportService {
           TextCellValue('pH'), TextCellValue('Temp (°C)'), TextCellValue('Conductividad'), TextCellValue('OD (mg/L)'),
           TextCellValue('Turbidez'), TextCellValue('Color Aparente'), TextCellValue('Olor'), TextCellValue('Tiene Muestra'),
           TextCellValue('ID Muestra'), TextCellValue('Objetivo Muestreo'), TextCellValue('Tipo Muestra'),
-          TextCellValue('Recipiente'), TextCellValue('Fotos')
+          TextCellValue('Recipiente'), TextCellValue('Fotos'), TextCellValue('Links Fotos')
         ]);
 
         for (WaterRecord w in water) {
-          String fotosResumen = w.photos.join(' | ');
+          String fotosResumen = w.photos.map((p) => p.filename).join(' | ');
+          String linksResumen = w.photos.map((p) => p.storageUrl).where((url) => url.isNotEmpty).join(' | ');
           sheet.appendRow([
             TextCellValue(w.id), TextCellValue(w.recordedAt.toIso8601String()), DoubleCellValue(w.coordinates.latitude), DoubleCellValue(w.coordinates.longitude),
             TextCellValue(w.weatherConditions), TextCellValue(w.visibility), TextCellValue(w.access), TextCellValue(w.samplingDepth),
@@ -260,7 +294,7 @@ class ExportService {
             TextCellValue(w.apparentColor), TextCellValue(w.odor), TextCellValue(w.hasSample ? 'Sí' : 'No'),
             TextCellValue(w.sampleId ?? ''), TextCellValue(w.samplingGoal ?? ''),
             TextCellValue(w.sampleType ?? ''), TextCellValue(w.container ?? ''), // <-- Corregido a w.container
-            TextCellValue(fotosResumen)
+            TextCellValue(fotosResumen), TextCellValue(linksResumen)
           ]);
         }
       }

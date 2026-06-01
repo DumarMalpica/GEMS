@@ -13,16 +13,31 @@ import '../../domain/ports/photo_local_port.dart';
 import '../../core/database/isar_service.dart';
 import 'photo_model.dart';
 
+/// Adaptador que implementa [PhotoLocalPort] para el manejo de fotos.
+///
+/// Se encarga de guardar fotos localmente usando Isar (como base de datos local),
+/// comprimirlas y posteriormente subirlas a Cloudinary. También se encarga de
+/// actualizar las referencias de estas fotos en los registros correspondientes en Firestore.
 class PhotoStorageAdapter implements PhotoLocalPort {
+  /// Instancia de [FirebaseStorage] para interactuar con el almacenamiento en la nube (opcional, en esta implementación se usa Cloudinary).
   final FirebaseStorage? _storage;
+  
+  /// Cliente HTTP utilizado para realizar la petición a la API de Cloudinary.
   final http.Client _httpClient;
 
+  /// Constructor de [PhotoStorageAdapter].
+  ///
+  /// Permite inyectar [storage] y [httpClient] para facilitar pruebas o mockeos.
   PhotoStorageAdapter({FirebaseStorage? storage, http.Client? httpClient})
     : _storage = storage,
       _httpClient = httpClient ?? http.Client();
 
   // ── PhotoLocalPort ────────────────────────────────────────────────────────
 
+  /// Guarda una foto localmente, comprimiéndola y almacenando sus metadatos en Isar.
+  /// 
+  /// Recibe los [bytes] de la imagen, el [recordId] al que pertenece, el [photoType]
+  /// (ej. 'bird', 'rock') y el [recordType]. Retorna el ID generado para la foto.
   @override
   Future<String> savePhotoLocally(
     Uint8List bytes,
@@ -61,6 +76,7 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     return photoId;
   }
 
+  /// Recupera un objeto [Photo] específico dado su [photoId] consultando la BD local.
   @override
   Future<Photo?> getPhotoById(String photoId) async {
     final isar = await IsarService.getInstance();
@@ -73,6 +89,9 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     return results.first.toDomain();
   }
 
+  /// Reasigna todas las fotos de un [fromRecordId] a un [toRecordId].
+  /// 
+  /// Útil cuando se genera un ID temporal y luego el servidor confirma el ID final del registro.
   @override
   Future<void> relinkPhotosToRecord(
     String fromRecordId,
@@ -103,6 +122,7 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     });
   }
 
+  /// Obtiene todas las fotos asociadas a un registro específico ([recordId]).
   @override
   Future<List<Photo>> getPhotosByRecord(String recordId) async {
     final isar = await IsarService.getInstance();
@@ -113,6 +133,8 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     return results.map((m) => m.toDomain()).toList();
   }
 
+  /// Elimina una foto localmente (tanto el archivo físico como su registro en Isar) 
+  /// basándose en su [photoId].
   @override
   Future<void> deletePhoto(String photoId) async {
     final isar = await IsarService.getInstance();
@@ -132,6 +154,7 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     });
   }
 
+  /// Recupera todas las fotos que tienen estado de sincronización 'pending'.
   @override
   Future<List<Photo>> getPendingSyncPhotos() async {
     final isar = await IsarService.getInstance();
@@ -142,6 +165,7 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     return results.map((m) => m.toDomain()).toList();
   }
 
+  /// Actualiza el estado de sincronización ([status]) de una foto en la BD local.
   @override
   Future<void> updatePhotoSyncStatus(String photoId, String status) async {
     final isar = await IsarService.getInstance();
@@ -157,6 +181,8 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     });
   }
 
+  /// Actualiza la URL remota ([storageUrl]) de una foto luego de ser subida, 
+  /// marcando su estado como 'synced'.
   @override
   Future<void> updatePhotoStorageUrl(String photoId, String storageUrl) async {
     final isar = await IsarService.getInstance();
@@ -176,6 +202,11 @@ class PhotoStorageAdapter implements PhotoLocalPort {
 
   // ── Cloudinary Storage upload ──────────────────────────────────────────────
 
+  /// Sube la foto local a la plataforma **Cloudinary**.
+  ///
+  /// Lee el archivo local asociado al [photoId], lo sube vía HTTP Multipart a Cloudinary, 
+  /// obtiene la `secure_url` y actualiza tanto el registro local (Isar) como el 
+  /// documento remoto (Firestore) correspondiente al registro ([recordId]) con la URL final.
   Future<void> uploadToFirebase(String photoId, String outingPrefix) async {
     final isar = await IsarService.getInstance();
     final query = isar.photoModels.buildQuery<PhotoModel>(
@@ -253,6 +284,7 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     });
   }
 
+  /// Determina el nombre de la colección en Firestore basándose en el [recordType].
   String? _collectionFromRecordType(String recordType) {
     switch (recordType.toLowerCase()) {
       case 'bird':
@@ -278,6 +310,8 @@ class PhotoStorageAdapter implements PhotoLocalPort {
   static const _maxPhotoDim = 1024;
   static const _jpegQuality = 40;
 
+  /// Comprime una imagen a un máximo de `_maxPhotoDim` de ancho/alto
+  /// y una calidad de `_jpegQuality`.
   Future<Uint8List> _compress(Uint8List bytes) async {
     final result = await FlutterImageCompress.compressWithList(
       bytes,
@@ -289,6 +323,7 @@ class PhotoStorageAdapter implements PhotoLocalPort {
     return result;
   }
 
+  /// Deduce el tipo de registro (ej. 'bird', 'rock') a partir de su ID o prefijo.
   String _recordTypeFromId(String recordId) {
     if (recordId.contains('bird')) return 'bird';
     if (recordId.contains('rock')) return 'rock';

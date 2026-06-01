@@ -5,13 +5,14 @@ import '../../domain/entities/photo.dart';
 import '../../domain/entities/coordinate.dart';
 import 'record_photo_sync_helper.dart';
 
+/// Adaptador concreto para operaciones de WaterRecord en Firestore.
 class FirebaseWaterRecordAdapter implements WaterRecordRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'water_records';
 
   FirebaseWaterRecordAdapter(this._firestore);
 
-  @override
+  /// Guarda un nuevo registro de WaterRecord en Firestore y sincroniza sus datos.
   @override
   Future<void> saveWaterRecord(WaterRecord item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -64,16 +65,19 @@ class FirebaseWaterRecordAdapter implements WaterRecordRemotePort {
     }
   }
 
+  /// Actualiza un registro existente de WaterRecord en Firestore con los nuevos datos.
   @override
   Future<void> updateWaterRecord(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de WaterRecord en Firestore mediante su id.
   @override
   Future<void> deleteWaterRecord(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de [WaterRecord] por su [id]. Retorna null si no existe.
   @override
   Future<WaterRecord?> getWaterRecordById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -81,6 +85,7 @@ class FirebaseWaterRecordAdapter implements WaterRecordRemotePort {
     return _mapSnapshotToWaterRecord(doc);
   }
 
+  /// Obtiene de forma paginada un listado de registros de agua.
   @override
   Future<WaterRecordSearchResult> getWaterRecords({
     int limit = 20,
@@ -100,6 +105,7 @@ class FirebaseWaterRecordAdapter implements WaterRecordRemotePort {
     );
   }
 
+  /// Consulta todos los registros de agua filtrables para exportación a Excel.
   @override
   Future<List<WaterRecord>> getWaterRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
     Query query = _firestore.collection(_collection);
@@ -121,6 +127,7 @@ class FirebaseWaterRecordAdapter implements WaterRecordRemotePort {
     return snapshot.docs.map((doc) => _mapSnapshotToWaterRecord(doc)).toList();
   }
 
+  /// Stream para observar en tiempo real los registros de agua de una expedición ([outingId]).
   @override
   Stream<List<WaterRecord>> watchWaterRecordsByOuting(String outingId) {
     return _firestore
@@ -130,6 +137,7 @@ class FirebaseWaterRecordAdapter implements WaterRecordRemotePort {
         .map((snap) => snap.docs.map(_mapSnapshotToWaterRecord).toList());
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `WaterRecord`.
   WaterRecord _mapSnapshotToWaterRecord(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final coord = data['coordinates'] as Map<String, dynamic>? ?? {};

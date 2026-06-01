@@ -6,12 +6,14 @@ import '../../domain/entities/coordinate.dart';
 import '../../domain/entities/plot.dart';
 import 'record_photo_sync_helper.dart';
 
+/// Adaptador concreto para operaciones de SoilRecord en Firestore.
 class FirebaseSoilRecordAdapter implements SoilRecordRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'soil_records';
 
   FirebaseSoilRecordAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de SoilRecord en Firestore y sincroniza sus datos.
   @override
   Future<void> saveSoilRecord(SoilRecord item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -64,16 +66,19 @@ class FirebaseSoilRecordAdapter implements SoilRecordRemotePort {
     }
   }
 
+  /// Actualiza un registro existente de SoilRecord en Firestore con los nuevos datos.
   @override
   Future<void> updateSoilRecord(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de SoilRecord en Firestore mediante su id.
   @override
   Future<void> deleteSoilRecord(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de [SoilRecord] por su [id]. Retorna null si no existe.
   @override
   Future<SoilRecord?> getSoilRecordById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -81,6 +86,7 @@ class FirebaseSoilRecordAdapter implements SoilRecordRemotePort {
     return _mapSnapshotToSoilRecord(doc);
   }
 
+  /// Obtiene de forma paginada un listado de registros de suelos.
   @override
   Future<SoilRecordSearchResult> getSoilRecords({
     int limit = 20,
@@ -100,6 +106,7 @@ class FirebaseSoilRecordAdapter implements SoilRecordRemotePort {
     );
   }
 
+  /// Consulta todos los registros de suelos filtrables para exportación a Excel.
   @override
   Future<List<SoilRecord>> getSoilRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
     Query query = _firestore.collection(_collection);
@@ -121,6 +128,7 @@ class FirebaseSoilRecordAdapter implements SoilRecordRemotePort {
     return snapshot.docs.map((doc) => _mapSnapshotToSoilRecord(doc)).toList();
   }
 
+  /// Stream para observar en tiempo real los registros de suelos de una expedición ([outingId]).
   @override
   Stream<List<SoilRecord>> watchSoilRecordsByOuting(String outingId) {
     return _firestore
@@ -130,6 +138,7 @@ class FirebaseSoilRecordAdapter implements SoilRecordRemotePort {
         .map((snap) => snap.docs.map(_mapSnapshotToSoilRecord).toList());
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `SoilRecord`.
   SoilRecord _mapSnapshotToSoilRecord(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final coord = data['coordinates'] as Map<String, dynamic>? ?? {};

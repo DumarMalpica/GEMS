@@ -6,8 +6,13 @@
 ///   - [user]: usuario base. Sus permisos de registro dependen de su
 ///     membresía a una expedición, no de este rol.
 class Role {
+  /// Identificador único del rol (e.g. 'admin', 'user').
   final String id;
+
+  /// Nombre descriptivo del rol (e.g. 'Administrador', 'Usuario').
   final String name;
+
+  /// Lista de claves de permisos específicos asignados a este rol.
   final List<String> permissions;
 
   /// Cuando true, el usuario tiene acceso irrestricto sin importar permissions.

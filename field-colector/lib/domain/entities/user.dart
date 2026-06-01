@@ -6,11 +6,22 @@ import 'role.dart';
 /// El [token] y [tokenExpiry] permiten validar sesión offline sin internet.
 /// El [fullName] autocompleta el campo "Observador" en todos los formularios.
 class User {
-  final String id;          // Firebase UID
+  /// Firebase UID (Identificador único).
+  final String id;
+
+  /// Correo electrónico asociado a la cuenta.
   final String email;
+
+  /// Nombre completo del usuario.
   final String fullName;
+
+  /// Campo de estudio o disciplina (e.g. 'Biología', 'Geología').
   final String? fieldStudy;
+
+  /// Indica si el usuario es graduado (profesional) o estudiante.
   final bool graduated;
+
+  /// Rol asignado dentro del sistema que dicta sus permisos generales.
   final Role role;
 
   /// JWT retornado por Firebase Auth. Guardado en Isar para validación offline.
@@ -19,7 +30,10 @@ class User {
   /// Fin de ventana de sesión offline (app); JWT de Firebase sigue siendo corto.
   final DateTime? tokenExpiry;
 
+  /// Indica si el usuario está activo en la plataforma o fue deshabilitado.
   final bool isActive;
+
+  /// Fecha de registro de la cuenta en el sistema.
   final DateTime? createdAt;
 
   const User({

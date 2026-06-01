@@ -5,12 +5,14 @@ import '../../domain/entities/photo.dart';
 import '../../domain/entities/coordinate.dart';
 import 'record_photo_sync_helper.dart';
 
+/// Adaptador concreto para operaciones de BirdRecord en Firestore.
 class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'bird_records';
 
   FirebaseBirdRecordAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de BirdRecord en Firestore y sincroniza sus datos.
   @override
   Future<void> saveBirdRecord(BirdRecord item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -56,16 +58,19 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
     }
   }
 
+  /// Actualiza un registro existente de BirdRecord en Firestore con los nuevos datos.
   @override
   Future<void> updateBirdRecord(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de BirdRecord en Firestore mediante su id.
   @override
   Future<void> deleteBirdRecord(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de BirdRecord por su [id]. Retorna null si no existe.
   @override
   Future<BirdRecord?> getBirdRecordById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -73,6 +78,7 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
     return _mapSnapshotToBirdRecord(doc);
   }
 
+  /// Obtiene de forma paginada un listado de registros de aves.
   @override
   Future<BirdRecordSearchResult> getBirdRecords({
     int limit = 20,
@@ -92,6 +98,7 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
     );
   }
 
+  /// Consulta todos los registros de aves filtrables para exportación a Excel.
   @override
   Future<List<BirdRecord>> getBirdRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
     Query query = _firestore.collection(_collection);
@@ -113,6 +120,7 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
     return snapshot.docs.map((doc) => _mapSnapshotToBirdRecord(doc)).toList();
   }
 
+  /// Stream para observar en tiempo real los registros de aves correspondientes a una expedición ([outingId]).
   @override
   Stream<List<BirdRecord>> watchBirdRecordsByOuting(String outingId) {
     return _firestore
@@ -122,6 +130,7 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
         .map((snap) => snap.docs.map(_mapSnapshotToBirdRecord).toList());
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `BirdRecord`.
   BirdRecord _mapSnapshotToBirdRecord(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final coord = data['coordinates'] as Map<String, dynamic>? ?? {};

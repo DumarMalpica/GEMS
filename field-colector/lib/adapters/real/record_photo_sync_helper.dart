@@ -8,9 +8,22 @@ import '../../core/database/isar_service.dart';
 import '../../domain/entities/photo.dart';
 import 'photo_model.dart';
 
+/// Helper class (Clase de utilidad) para la sincronización y subida de fotos a Cloudinary.
+///
+/// Contiene lógica estática que abstrae el proceso iterativo de subir un 
+/// listado de [Photo] pertenecientes a un registro, actualizando el estado
+/// tanto a nivel local (Isar) como en la base de datos remota (Firestore).
 class RecordPhotoSyncHelper {
   RecordPhotoSyncHelper._();
 
+  /// Sube de manera asíncrona una lista de [photos] a Cloudinary y sincroniza 
+  /// el resultado en las bases de datos correspondientes.
+  /// 
+  /// Para cada foto en [photos]:
+  /// 1. Verifica su existencia local.
+  /// 2. La sube usando HTTP Multipart Request.
+  /// 3. Actualiza el documento de Firestore del registro padre incluyendo la URL de Cloudinary.
+  /// 4. Actualiza el registro local de la foto en Isar a estado 'synced' o 'error'.
   static Future<void> uploadAndSyncPhotos({
     required String recordId,
     required String recordType,
@@ -122,6 +135,7 @@ class RecordPhotoSyncHelper {
     }
   }
 
+  /// Retorna el nombre de la colección de Firestore que corresponde al [recordType].
   static String? _collectionFromRecordType(String recordType) {
     switch (recordType.toLowerCase()) {
       case 'bird':

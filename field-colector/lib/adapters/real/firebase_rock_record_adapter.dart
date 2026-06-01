@@ -5,12 +5,14 @@ import '../../domain/entities/photo.dart';
 import '../../domain/entities/coordinate.dart';
 import 'record_photo_sync_helper.dart';
 
+/// Adaptador concreto para operaciones de RockRecord en Firestore.
 class FirebaseRockRecordAdapter implements RockRecordRemotePort {
   final FirebaseFirestore _firestore;
   final String _collection = 'rock_records';
 
   FirebaseRockRecordAdapter(this._firestore);
 
+  /// Guarda un nuevo registro de RockRecord en Firestore y sincroniza sus datos.
   @override
   Future<void> saveRockRecord(RockRecord item) async {
     await _firestore.collection(_collection).doc(item.id).set({
@@ -56,16 +58,19 @@ class FirebaseRockRecordAdapter implements RockRecordRemotePort {
     }
   }
 
+  /// Actualiza un registro existente de RockRecord en Firestore con los nuevos datos.
   @override
   Future<void> updateRockRecord(String id, Map<String, dynamic> data) async {
     await _firestore.collection(_collection).doc(id).update(data);
   }
 
+  /// Elimina un registro de RockRecord en Firestore mediante su id.
   @override
   Future<void> deleteRockRecord(String id) async {
     await _firestore.collection(_collection).doc(id).delete();
   }
 
+  /// Recupera un registro de [RockRecord] por su [id]. Retorna null si no existe.
   @override
   Future<RockRecord?> getRockRecordById(String id) async {
     final doc = await _firestore.collection(_collection).doc(id).get();
@@ -73,6 +78,7 @@ class FirebaseRockRecordAdapter implements RockRecordRemotePort {
     return _mapSnapshotToRockRecord(doc);
   }
 
+  /// Obtiene de forma paginada un listado de registros de rocas.
   @override
   Future<RockRecordSearchResult> getRockRecords({
     int limit = 20,
@@ -92,6 +98,7 @@ class FirebaseRockRecordAdapter implements RockRecordRemotePort {
     );
   }
 
+  /// Consulta todos los registros de rocas filtrables para exportación a Excel.
   @override
   Future<List<RockRecord>> getRockRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
     Query query = _firestore.collection(_collection);
@@ -113,6 +120,7 @@ class FirebaseRockRecordAdapter implements RockRecordRemotePort {
     return snapshot.docs.map((doc) => _mapSnapshotToRockRecord(doc)).toList();
   }
 
+  /// Stream para observar en tiempo real los registros de rocas de una expedición ([outingId]).
   @override
   Stream<List<RockRecord>> watchRockRecordsByOuting(String outingId) {
     return _firestore
@@ -122,6 +130,7 @@ class FirebaseRockRecordAdapter implements RockRecordRemotePort {
         .map((snap) => snap.docs.map(_mapSnapshotToRockRecord).toList());
   }
 
+  /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `RockRecord`.
   RockRecord _mapSnapshotToRockRecord(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final coord = data['coordinates'] as Map<String, dynamic>? ?? {};
