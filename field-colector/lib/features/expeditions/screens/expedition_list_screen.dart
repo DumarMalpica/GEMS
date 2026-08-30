@@ -129,44 +129,35 @@ class _ExpeditionListScreenState extends State<ExpeditionListScreen> {
 
   Future<void> _loadOutings({bool forceRemoteSync = false}) async {
     setState(() {
-      _loading = true;
+      if (!forceRemoteSync) _loading = true;
       _loadError = null;
     });
+
     try {
       final reachability = context.read<MapServices>().reachability;
       final hasNet = await reachability.hasConnectivityNow();
       _isOffline = !hasNet;
 
-      // Si hay red, intentar sync remoto
+      // 1. Mostrar lo local de inmediato para que la UI no quede bloqueada
+      await _fetchAndShowLocalOutings();
+
+      // 2. Si hay red, sincronizar remotamente en background
       if (hasNet) {
         final auth = context.read<Authprovider>();
         final userId = auth.user?.id;
         if (userId != null && userId.isNotEmpty) {
-          try {
-            await context
-                .read<ExpeditionSyncService>()
-                .syncExpeditionsForUser(userId);
-          } catch (_) {}
+          final syncFuture = context
+              .read<ExpeditionSyncService>()
+              .syncExpeditionsForUser(userId)
+              .then((_) => _fetchAndShowLocalOutings())
+              .catchError((_) {}); // Evitar crashes si falla la red en background
+
+          // Si el usuario forzó la recarga con swipe down, esperamos a que termine
+          if (forceRemoteSync) {
+            await syncFuture;
+          }
         }
       }
-
-      // Leer todo de Isar
-      final allOutings = await context.read<OutingLocalPort>().getAllOutings();
-      final pinnedIds = context.read<OfflineExpeditionService>().pinnedIds;
-
-      if (!mounted) return;
-      setState(() {
-        if (_isOffline) {
-          // Offline: solo mostrar las pinned que están en Isar
-          _outings = allOutings
-              .where((o) => pinnedIds.contains(o.id))
-              .toList();
-        } else {
-          // Online: mostrar todas
-          _outings = allOutings;
-        }
-        _loading = false;
-      });
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -174,6 +165,23 @@ class _ExpeditionListScreenState extends State<ExpeditionListScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _fetchAndShowLocalOutings() async {
+    final allOutings = await context.read<OutingLocalPort>().getAllOutings();
+    final pinnedIds = context.read<OfflineExpeditionService>().pinnedIds;
+
+    if (!mounted) return;
+    setState(() {
+      if (_isOffline) {
+        // Offline: solo mostrar las pinned que están en Isar
+        _outings = allOutings.where((o) => pinnedIds.contains(o.id)).toList();
+      } else {
+        // Online: mostrar todas
+        _outings = allOutings;
+      }
+      _loading = false;
+    });
   }
 
   Set<String> get _pinnedIds =>

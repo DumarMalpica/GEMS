@@ -11,6 +11,12 @@ class OfflineArea {
   /// Nombre legible asignado al área (Ej: "Transecto Biológico Zona A").
   final String name;
 
+  /// Expedición propietaria del área, si fue descargada desde una expedición.
+  final String? outingId;
+
+  /// Lugar de expedición asociado al área, si aplica.
+  final String? placeId;
+
   /// Latitud central del área de descarga.
   final double centerLat;
 
@@ -38,6 +44,8 @@ class OfflineArea {
   const OfflineArea({
     required this.id,
     required this.name,
+    this.outingId,
+    this.placeId,
     required this.centerLat,
     required this.centerLon,
     required this.radiusInKilometers,
@@ -53,6 +61,8 @@ class OfflineArea {
   OfflineArea copyWith({
     String? id,
     String? name,
+    String? outingId,
+    String? placeId,
     double? centerLat,
     double? centerLon,
     double? radiusInKilometers,
@@ -65,6 +75,8 @@ class OfflineArea {
     return OfflineArea(
       id: id ?? this.id,
       name: name ?? this.name,
+      outingId: outingId ?? this.outingId,
+      placeId: placeId ?? this.placeId,
       centerLat: centerLat ?? this.centerLat,
       centerLon: centerLon ?? this.centerLon,
       radiusInKilometers: radiusInKilometers ?? this.radiusInKilometers,

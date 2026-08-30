@@ -19,6 +19,8 @@ class DownloadMapUseCase {
     required double lon,
     required double radius,
     required String name,
+    String? outingId,
+    String? placeId,
   }) async {
     if (!isValidLatLng(lat, lon)) {
       throw ArgumentError('Coordenadas inválidas para descarga de mapa '
@@ -28,6 +30,8 @@ class DownloadMapUseCase {
     final newArea = OfflineArea(
       id: generateOfflineAreaId(),
       name: name,
+      outingId: outingId,
+      placeId: placeId,
       centerLat: lat,
       centerLon: lon,
       radiusInKilometers: radius,

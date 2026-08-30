@@ -18,9 +18,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
       'location': item.location,
       'zone': item.zone,
       'reason': item.reason,
-      'latitude': item.latitude,
-      'longitude': item.longitude,
-      'altitude': item.altitude,
+      'places': item.places.map((place) => place.toMap()).toList(),
       'startDate': item.startDate.toIso8601String(),
       'endDate': item.endDate.toIso8601String(),
       'createdById': item.createdById,
@@ -124,6 +122,32 @@ class FirebaseOutingAdapter implements OutingRemotePort {
         .toList();
   }
 
+  List<OutingPlace> _parsePlaces(Map<String, dynamic> data) {
+    final raw = data['places'];
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((place) => OutingPlace.fromMap(
+                Map<String, dynamic>.from(place),
+              ))
+          .toList();
+    }
+
+    // Convert documents created before expeditions supported multiple places.
+    final latitude = (data['latitude'] as num?)?.toDouble();
+    final longitude = (data['longitude'] as num?)?.toDouble();
+    if (latitude == null || longitude == null) return [];
+    return [
+      OutingPlace(
+        id: 'legacy-place',
+        name: data['location'] ?? 'Lugar principal',
+        latitude: latitude,
+        longitude: longitude,
+        altitude: (data['altitude'] as num?)?.toDouble() ?? 0,
+      ),
+    ];
+  }
+
   /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `Outing`.
   Outing _mapSnapshotToOuting(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -134,9 +158,7 @@ class FirebaseOutingAdapter implements OutingRemotePort {
       location: data['location'] ?? '',
       zone: data['zone'] ?? '',
       reason: data['reason'] ?? '',
-      latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
-      longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
-      altitude: (data['altitude'] as num?)?.toDouble() ?? 0.0,
+      places: _parsePlaces(data),
       startDate: data['startDate'] != null ? DateTime.parse(data['startDate']) : DateTime.now(),
       endDate: data['endDate'] != null ? DateTime.parse(data['endDate']) : DateTime.now(),
       createdById: data['createdById'] ?? '',

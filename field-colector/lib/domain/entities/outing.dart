@@ -31,6 +31,39 @@ class OutingMember {
 /// Solicitud pendiente de unión; misma forma que [OutingMember].
 typedef PendingUser = OutingMember;
 
+/// Lugar de trabajo asociado a una expedición.
+class OutingPlace {
+  final String id;
+  final String name;
+  final double latitude;
+  final double longitude;
+  final double altitude;
+
+  const OutingPlace({
+    required this.id,
+    required this.name,
+    required this.latitude,
+    required this.longitude,
+    required this.altitude,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'name': name,
+        'latitude': latitude,
+        'longitude': longitude,
+        'altitude': altitude,
+      };
+
+  factory OutingPlace.fromMap(Map<String, dynamic> map) => OutingPlace(
+        id: map['id'] ?? '',
+        name: map['name'] ?? '',
+        latitude: (map['latitude'] as num?)?.toDouble() ?? 0,
+        longitude: (map['longitude'] as num?)?.toDouble() ?? 0,
+        altitude: (map['altitude'] as num?)?.toDouble() ?? 0,
+      );
+}
+
 /// Representa una salida de campo o expedición.
 /// 
 /// Una expedición agrupa lógicamente múltiples registros biológicos, geológicos
@@ -55,14 +88,8 @@ class Outing {
   /// Motivo u objetivo de la salida de campo.
   final String reason;
 
-  /// Latitud del punto central o de encuentro.
-  final double latitude;
-
-  /// Longitud del punto central o de encuentro.
-  final double longitude;
-
-  /// Altitud en metros sobre el nivel del mar.
-  final double altitude;
+  /// Lugares de trabajo de la expedición.
+  final List<OutingPlace> places;
 
   /// Fecha programada de inicio.
   final DateTime startDate;
@@ -95,9 +122,7 @@ class Outing {
     required this.location,
     required this.zone,
     required this.reason,
-    required this.latitude,
-    required this.longitude,
-    required this.altitude,
+    required this.places,
     required this.startDate,
     required this.endDate,
     required this.createdById,

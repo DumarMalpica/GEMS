@@ -288,8 +288,32 @@ class _ExpeditionDetailScreenState extends State<ExpeditionDetailScreen> {
   Future<void> _downloadMap() async {
     final services = context.read<MapServices>();
 
+    final place = await showDialog<OutingPlace>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Elige lugar para descargar'),
+        children: _outing.places
+            .map(
+              (place) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, place),
+                child: ListTile(
+                  leading: const Icon(Icons.location_on_outlined),
+                  title: Text(place.name),
+                  subtitle: Text(
+                    '${place.latitude.toStringAsFixed(4)}, '
+                    '${place.longitude.toStringAsFixed(4)}',
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+    if (place == null || !mounted) return;
+
     final picked = await MapTileDownloadFlow.showDownloadDialog(
       context: context,
+      initialName: place.name,
     );
     if (picked == null || !mounted) return;
 
@@ -299,10 +323,12 @@ class _ExpeditionDetailScreenState extends State<ExpeditionDetailScreen> {
 
     try {
       await services.downloadMap.execute(
-        lat: _outing.latitude,
-        lon: _outing.longitude,
+        lat: place.latitude,
+        lon: place.longitude,
         radius: radiusKm,
         name: name,
+        outingId: _outing.id,
+        placeId: place.id,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -401,18 +427,16 @@ class _ExpeditionDetailScreenState extends State<ExpeditionDetailScreen> {
               DetailField(label: 'Ubicación', value: _outing.location),
               DetailField(label: 'Zona', value: _outing.zone),
               DetailField(label: 'Razón', value: _outing.reason),
-              DetailField(
-                label: 'Latitud',
-                value: _outing.latitude.toStringAsFixed(4),
-              ),
-              DetailField(
-                label: 'Longitud',
-                value: _outing.longitude.toStringAsFixed(4),
-              ),
-              DetailField(
-                label: 'Altitud',
-                value: '${_outing.altitude.toStringAsFixed(0)} m',
-              ),
+               DetailSectionTitle('Lugares (${_outing.places.length})'),
+               const SizedBox(height: 8),
+               ..._outing.places.map(
+                 (place) => DetailField(
+                   label: place.name,
+                   value: '${place.latitude.toStringAsFixed(4)}, '
+                       '${place.longitude.toStringAsFixed(4)} · '
+                       '${place.altitude.toStringAsFixed(0)} m',
+                 ),
+               ),
               DetailField(
                 label: 'Fecha inicio',
                 value: dateFormat.format(_outing.startDate),

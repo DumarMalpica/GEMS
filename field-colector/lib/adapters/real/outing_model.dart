@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 import '../../domain/entities/outing.dart';
 
@@ -34,6 +36,7 @@ class OutingModel {
   late String location;
   late String zone;
   late String reason;
+  // Kept for the current Isar schema. New place data is encoded in location.
   late double latitude;
   late double longitude;
   late double altitude;
@@ -46,16 +49,39 @@ class OutingModel {
   late List<OutingMemberModel> participants;
   late List<OutingMemberModel> pendingUsers;
 
-  Outing toDomain() => Outing(
+  Outing toDomain() {
+    Map<String, dynamic>? envelope;
+    try {
+      final decoded = jsonDecode(location);
+      if (decoded is Map<String, dynamic> && decoded['places'] is List) {
+        envelope = decoded;
+      }
+    } catch (_) {}
+
+    final places = envelope == null
+        ? [
+            OutingPlace(
+              id: 'legacy-place',
+              name: location,
+              latitude: latitude,
+              longitude: longitude,
+              altitude: altitude,
+            ),
+          ]
+        : (envelope['places'] as List)
+            .map((place) => OutingPlace.fromMap(
+                  Map<String, dynamic>.from(place),
+                ))
+            .toList();
+
+    return Outing(
         id: outingId,
         prefix: prefix,
         name: name,
-        location: location,
+        location: envelope?['location'] as String? ?? location,
         zone: zone,
         reason: reason,
-        latitude: latitude,
-        longitude: longitude,
-        altitude: altitude,
+        places: places,
         startDate: startDate,
         endDate: endDate,
         createdById: createdById,
@@ -65,17 +91,21 @@ class OutingModel {
         participants: participants.map((m) => m.toDomain()).toList(),
         pendingUsers: pendingUsers.map((m) => m.toDomain()).toList(),
       );
+  }
 
   static OutingModel fromDomain(Outing o) => OutingModel()
     ..outingId = o.id
     ..prefix = o.prefix
     ..name = o.name
-    ..location = o.location
+    ..location = jsonEncode({
+      'location': o.location,
+      'places': o.places.map((place) => place.toMap()).toList(),
+    })
     ..zone = o.zone
     ..reason = o.reason
-    ..latitude = o.latitude
-    ..longitude = o.longitude
-    ..altitude = o.altitude
+    ..latitude = o.places.isEmpty ? 0 : o.places.first.latitude
+    ..longitude = o.places.isEmpty ? 0 : o.places.first.longitude
+    ..altitude = o.places.isEmpty ? 0 : o.places.first.altitude
     ..startDate = o.startDate
     ..endDate = o.endDate
     ..createdById = o.createdById

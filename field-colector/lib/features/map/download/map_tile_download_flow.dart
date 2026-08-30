@@ -3,24 +3,25 @@ import 'package:flutter/material.dart';
 /// Orquestación de **descarga de teselas** (diálogo + [DownloadMapUseCase]).
 ///
 /// No pertenece al widget de mapa: la vista solo **previsualiza** y muestra
-/// pins; la descarga se decide en contexto de **expedición** (coordenada
-/// central, estado activo, etc.).
+/// pins; la descarga se decide en contexto de **expedición** (lugar
+/// seleccionado, estado activo, etc.).
 ///
 /// TODO(expedición): llamar desde la UI de expedición — botón "Descargar mapas".
 /// TODO(expedición): si negocio exige descarga automática al activar expedición,
-///    invocar aquí (o vía caso de uso) con lat/lon/radio tomados de la expedición.
+///    invocar aquí (o vía caso de uso) con lat/lon/radio del lugar seleccionado.
 /// TODO(expedición): reemplazar diálogo genérico por flujo alineado a diseño.
 class MapTileDownloadFlow {
   MapTileDownloadFlow._();
 
-  /// Muestra diálogo (nombre + radio) y ejecuta descarga alrededor de [centerLat]/[centerLon].
+  /// Muestra diálogo (nombre + radio) para un lugar seleccionado.
   ///
   /// Retorna `(nombre, radio)` si OK; `null` si usuario cancela.
   static Future<(String, double)?> showDownloadDialog({
     required BuildContext context,
     double initialRadiusKm = 5,
+    String initialName = 'Zona campo',
   }) async {
-    final nameController = TextEditingController(text: 'Zona campo');
+    final nameController = TextEditingController(text: initialName);
     var dialogRadius = initialRadiusKm;
 
     final picked = await showDialog<(String name, double radiusKm)?>(

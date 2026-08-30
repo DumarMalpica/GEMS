@@ -143,9 +143,7 @@ class ExpeditionSyncService {
         location: remote.location,
         zone: remote.zone,
         reason: remote.reason,
-        latitude: remote.latitude,
-        longitude: remote.longitude,
-        altitude: remote.altitude,
+        places: remote.places,
         startDate: remote.startDate,
         endDate: remote.endDate,
         createdById: remote.createdById,
@@ -165,9 +163,7 @@ class ExpeditionSyncService {
         a.location == b.location &&
         a.zone == b.zone &&
         a.reason == b.reason &&
-        a.latitude == b.latitude &&
-        a.longitude == b.longitude &&
-        a.altitude == b.altitude &&
+        _placesEqual(a.places, b.places) &&
         a.startDate == b.startDate &&
         a.endDate == b.endDate &&
         a.createdById == b.createdById &&
@@ -181,6 +177,22 @@ class ExpeditionSyncService {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  bool _placesEqual(List<OutingPlace> a, List<OutingPlace> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id ||
+          left.name != right.name ||
+          left.latitude != right.latitude ||
+          left.longitude != right.longitude ||
+          left.altitude != right.altitude) {
+        return false;
+      }
     }
     return true;
   }
