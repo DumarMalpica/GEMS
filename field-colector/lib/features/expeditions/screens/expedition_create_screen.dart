@@ -40,13 +40,15 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
   final _locationCtrl = TextEditingController();
   final _zoneCtrl = TextEditingController();
   final _reasonCtrl = TextEditingController();
+  final _placeNameCtrl = TextEditingController();
 
   // ── Dates ──
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // ── Location from map picker ──
-  PickedLocation? _pickedLocation;
+  // ── Locations from map picker ──
+  PickedLocation? _draftLocation;
+  final List<OutingPlace> _pickedPlaces = [];
 
   // ── Map expanded state ──
   bool _mapExpanded = false;
@@ -59,6 +61,7 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
     _locationCtrl.dispose();
     _zoneCtrl.dispose();
     _reasonCtrl.dispose();
+    _placeNameCtrl.dispose();
     super.dispose();
   }
 
@@ -101,13 +104,13 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
       _reasonCtrl.text.trim().isNotEmpty &&
       _startDate != null &&
       _endDate != null &&
-      _pickedLocation != null;
+       _pickedPlaces.isNotEmpty;
 
   // ── Submit ──
   Future<void> _onSubmit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_pickedLocation == null) {
+    if (_pickedPlaces.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Selecciona una ubicación en el mapa'),
@@ -146,9 +149,7 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
       location: _locationCtrl.text.trim(),
       zone: _zoneCtrl.text.trim(),
       reason: _reasonCtrl.text.trim(),
-      latitude: _pickedLocation!.latitude,
-      longitude: _pickedLocation!.longitude,
-      altitude: _pickedLocation!.altitude,
+      places: List.unmodifiable(_pickedPlaces),
       startDate: _startDate!,
       endDate: _endDate!,
       createdById: userId,
@@ -191,6 +192,30 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  void _addPlace() {
+    final location = _draftLocation;
+    if (location == null) return;
+    final name = _placeNameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Escribe nombre para el lugar')),
+      );
+      return;
+    }
+    setState(() {
+      _pickedPlaces.add(OutingPlace(
+        id: const Uuid().v4(),
+        name: name,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        altitude: location.altitude,
+      ));
+      _draftLocation = null;
+      _placeNameCtrl.clear();
+      _mapExpanded = false;
+    });
   }
 
   @override
@@ -346,15 +371,40 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
                   label: Text(
                     _mapExpanded
                         ? 'Ocultar mapa'
-                        : _pickedLocation != null
+                        : _draftLocation != null
                             ? 'Cambiar ubicación'
                             : 'Seleccionar en mapa',
                   ),
                 ),
                 const SizedBox(height: 8),
 
-                // Show selected coords summary when map collapsed
-                if (!_mapExpanded && _pickedLocation != null)
+                if (_pickedPlaces.isNotEmpty) ...[
+                  ..._pickedPlaces.asMap().entries.map((entry) {
+                    final place = entry.value;
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.location_on),
+                        title: Text('${entry.key + 1}. ${place.name}'),
+                        subtitle: Text(
+                          '${place.latitude.toStringAsFixed(4)}, '
+                          '${place.longitude.toStringAsFixed(4)} · '
+                          '${place.altitude.toStringAsFixed(0)} m',
+                        ),
+                        trailing: IconButton(
+                          tooltip: 'Eliminar lugar',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => setState(
+                            () => _pickedPlaces.removeAt(entry.key),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 8),
+                ],
+
+                // Show current point summary when map collapsed
+                if (!_mapExpanded && _draftLocation != null)
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
@@ -371,9 +421,9 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Lat: ${_pickedLocation!.latitude.toStringAsFixed(4)}'
-                            '  Lon: ${_pickedLocation!.longitude.toStringAsFixed(4)}'
-                            '  Alt: ${_pickedLocation!.altitude.toStringAsFixed(0)}m',
+                            'Punto seleccionado: '
+                            '${_draftLocation!.latitude.toStringAsFixed(4)}, '
+                            '${_draftLocation!.longitude.toStringAsFixed(4)}',
                             style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textPrimary,
@@ -387,10 +437,25 @@ class _ExpeditionCreateScreenState extends State<ExpeditionCreateScreen> {
                 // Expandable map
                 if (_mapExpanded) ...[
                   LocationPickerWidget(
-                    initialLocation: _pickedLocation,
+                    initialLocation: _draftLocation,
                     onLocationPicked: (loc) {
-                      setState(() => _pickedLocation = loc);
+                      setState(() => _draftLocation = loc);
                     },
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _placeNameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre del lugar *',
+                      hintText: 'Campamento norte',
+                      prefixIcon: Icon(Icons.label_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _draftLocation == null ? null : _addPlace,
+                    icon: const Icon(Icons.add_location_alt_outlined),
+                    label: const Text('Agregar lugar'),
                   ),
                 ],
 

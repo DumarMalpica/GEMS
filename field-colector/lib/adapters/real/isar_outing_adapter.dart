@@ -1,4 +1,6 @@
 // ignore_for_file: experimental_member_use
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 import '../../domain/entities/outing.dart';
 import '../../domain/ports/outing_local_port.dart';
@@ -46,9 +48,30 @@ class IsarOutingAdapter implements OutingLocalPort {
     final model = results.first;
     if (data.containsKey('prefix')) model.prefix = data['prefix'] as String;
     if (data.containsKey('name')) model.name = data['name'] as String;
-    if (data.containsKey('location')) model.location = data['location'] as String;
+    if (data.containsKey('location')) {
+      final places = model.toDomain().places;
+      model.location = jsonEncode({
+        'location': data['location'] as String,
+        'places': places.map((place) => place.toMap()).toList(),
+      });
+    }
     if (data.containsKey('zone')) model.zone = data['zone'] as String;
     if (data.containsKey('reason')) model.reason = data['reason'] as String;
+    if (data.containsKey('places')) {
+      final places = (data['places'] as List)
+          .map((place) => place is OutingPlace
+              ? place
+              : OutingPlace.fromMap(Map<String, dynamic>.from(place as Map)))
+          .toList();
+      final currentLocation = model.toDomain().location;
+      model.location = jsonEncode({
+        'location': currentLocation,
+        'places': places.map((place) => place.toMap()).toList(),
+      });
+      model.latitude = places.isEmpty ? 0 : places.first.latitude;
+      model.longitude = places.isEmpty ? 0 : places.first.longitude;
+      model.altitude = places.isEmpty ? 0 : places.first.altitude;
+    }
     if (data.containsKey('latitude')) model.latitude = (data['latitude'] as num).toDouble();
     if (data.containsKey('longitude')) model.longitude = (data['longitude'] as num).toDouble();
     if (data.containsKey('altitude')) model.altitude = (data['altitude'] as num).toDouble();
