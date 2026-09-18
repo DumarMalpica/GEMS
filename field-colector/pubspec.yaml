@@ -37,7 +37,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
-  phosphor_flutter: ^2.1.0
+  # Vendored + patched for Flutter >= 3.32 (upstream 2.1.0 extends IconData,
+  # which is now a final class; package is unmaintained since 2024-05).
+  phosphor_flutter:
+    path: vendor/phosphor_flutter
   google_fonts: ^8.0.2
   geolocator: ^14.0.2
   firebase_core: ^4.7.0
@@ -49,9 +52,9 @@ dependencies:
   flutter_map: ^8.3.0
   flutter_map_tile_caching: ^10.1.1
   latlong2: ^0.9.1
-  connectivity_plus: ^6.1.4
+  connectivity_plus: ^7.3.1
   intl: ^0.20.2
-  geocoding: ^3.0.0
+  geocoding: ^5.0.0
   path_provider: ^2.1.5
   excel: ^4.0.6
   firebase_storage: ^13.3.0
@@ -61,8 +64,8 @@ dependencies:
   uuid: ^4.5.1
   http: ^1.2.0
   image_picker: ^1.1.2
-  permission_handler: ^11.3.1
-  share_plus: ^10.1.4
+  permission_handler: ^13.0.2
+  share_plus: ^12.0.2
 
 
 dependency_overrides:
