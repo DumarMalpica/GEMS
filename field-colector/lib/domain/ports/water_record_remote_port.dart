@@ -23,6 +23,11 @@ abstract class WaterRecordRemotePort {
   /// Extrae la lista de registros de agua aplicando filtros opcionales (destinado para exportar a Excel).
   Future<List<WaterRecord>> getWaterRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
 
+  /// Obtiene los documentos de agua tal como vienen de Firestore para exportación dinámica.
+  ///
+  /// El resultado es una lista de mapas con los datos brutos del documento, incluyendo el `id`.
+  Future<List<Map<String, dynamic>>> getRawWaterRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
+
   /// Suscripción para recibir actualizaciones instantáneas de los registros de agua de una expedición ([outingId]).
   Stream<List<WaterRecord>> watchWaterRecordsByOuting(String outingId);
 }

@@ -73,6 +73,39 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
     DateTime? startDate,
     DateTime? endDate,
   }) async {
+    final snapshot = await _buildExportQuery(
+      outingId: outingId,
+      userId: userId,
+      startDate: startDate,
+      endDate: endDate,
+    ).get();
+    return snapshot.docs.map(_mapSnapshotToSocialRecord).toList();
+  }
+
+  /// Obtiene los documentos sociales en bruto para exportación dinámica.
+  @override
+  Future<List<Map<String, dynamic>>> getRawSocialRecordsForExport({
+    String? outingId,
+    String? userId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final snapshot = await _buildExportQuery(
+      outingId: outingId,
+      userId: userId,
+      startDate: startDate,
+      endDate: endDate,
+    ).get();
+    return snapshot.docs.map((doc) => _docToRawMap(doc)).toList();
+  }
+
+  /// Construye el query de exportación con los filtros comunes.
+  Query _buildExportQuery({
+    String? outingId,
+    String? userId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
     Query query = _firestore.collection(_collection);
     if (outingId != null) {
       query = query.where('outingId', isEqualTo: outingId);
@@ -91,8 +124,13 @@ class FirebaseSocialRecordAdapter implements SocialRecordRemotePort {
         isLessThanOrEqualTo: endDate.toIso8601String(),
       );
     }
-    final snapshot = await query.get();
-    return snapshot.docs.map(_mapSnapshotToSocialRecord).toList();
+    return query;
+  }
+
+  /// Convierte un documento de Firestore en un mapa crudo incluyendo su `id`.
+  Map<String, dynamic> _docToRawMap(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return {'id': doc.id, ...data};
   }
 
   /// Stream para observar en tiempo real los registros sociales de una expedición ([outingId]).

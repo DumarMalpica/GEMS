@@ -28,6 +28,11 @@ abstract class BirdRecordRemotePort {
   /// Permite filtrar opcionalmente por [outingId], [userId], y un rango de fechas ([startDate], [endDate]).
   Future<List<BirdRecord>> getBirdRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
 
+  /// Obtiene los documentos de aves tal como vienen de Firestore para exportación dinámica.
+  ///
+  /// El resultado es una lista de mapas con los datos brutos del documento, incluyendo el `id`.
+  Future<List<Map<String, dynamic>>> getRawBirdRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
+
   /// Escucha en tiempo real (Stream) los registros de una expedición específica ([outingId]).
   /// 
   /// Utilizado principalmente para actualizar marcadores en el mapa en vivo.
