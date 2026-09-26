@@ -23,6 +23,11 @@ abstract class SoilRecordRemotePort {
   /// Retorna los registros de suelos que coinciden con los filtros para exportar a Excel.
   Future<List<SoilRecord>> getSoilRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
 
+  /// Obtiene los documentos de suelos tal como vienen de Firestore para exportación dinámica.
+  ///
+  /// El resultado es una lista de mapas con los datos brutos del documento, incluyendo el `id`.
+  Future<List<Map<String, dynamic>>> getRawSoilRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
+
   /// Suscripción en tiempo real a los registros de suelos de una expedición ([outingId]).
   Stream<List<SoilRecord>> watchSoilRecordsByOuting(String outingId);
 }

@@ -31,6 +31,16 @@ abstract class SocialRecordRemotePort {
     DateTime? endDate,
   });
 
+  /// Obtiene los documentos sociales tal como vienen de Firestore para exportación dinámica.
+  ///
+  /// El resultado es una lista de mapas con los datos brutos del documento, incluyendo el `id`.
+  Future<List<Map<String, dynamic>>> getRawSocialRecordsForExport({
+    String? outingId,
+    String? userId,
+    DateTime? startDate,
+    DateTime? endDate,
+  });
+
   /// Devuelve un flujo continuo (Stream) de registros sociales vinculados a una salida de campo ([outingId]).
   Stream<List<SocialRecord>> watchSocialRecordsByOuting(String outingId);
 }

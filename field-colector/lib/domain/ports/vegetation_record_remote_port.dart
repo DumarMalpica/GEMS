@@ -23,6 +23,11 @@ abstract class VegetationRecordRemotePort {
   /// Descarga los registros de vegetación filtrados por expedición, usuario y rango de fechas (para exportación a Excel).
   Future<List<VegetationRecord>> getVegetationRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
 
+  /// Obtiene los documentos de vegetación tal como vienen de Firestore para exportación dinámica.
+  ///
+  /// El resultado es una lista de mapas con los datos brutos del documento, incluyendo el `id`.
+  Future<List<Map<String, dynamic>>> getRawVegetationRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
+
   /// Crea un flujo de datos en tiempo real (Stream) de los registros de vegetación vinculados a una [outingId].
   Stream<List<VegetationRecord>> watchVegetationRecordsByOuting(String outingId);
 }

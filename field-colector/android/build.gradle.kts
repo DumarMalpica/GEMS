@@ -24,21 +24,37 @@ subprojects {
     afterEvaluate {
         val androidExt = extensions.findByName("android") ?: return@afterEvaluate
 
-        // isar_flutter_libs 3.1.0+1 ships compileSdk 30; Material attrs need 31+
+        // isar_flutter_libs 3.1.0+1 ships compileSdk 30; Material attrs need 31+.
+        // Only raise compileSdk, never lower it: permission_handler_android 14.1.0
+        // requires 37 (ACCESS_LOCAL_NETWORK / CINNAMON_BUN symbols).
         runCatching {
-            val setCompileSdk =
-                androidExt.javaClass.methods.find {
-                    it.name == "setCompileSdk" && it.parameterCount == 1
+            val currentApi =
+                runCatching {
+                        val getter =
+                            androidExt.javaClass.methods.find {
+                                it.name == "getCompileSdkVersion" && it.parameterCount == 0
+                            }
+                        (getter?.invoke(androidExt) as? String)
+                            ?.removePrefix("android-")
+                            ?.toIntOrNull()
+                            ?: 0
+                    }
+                    .getOrDefault(0)
+            if (currentApi < 36) {
+                val setCompileSdk =
+                    androidExt.javaClass.methods.find {
+                        it.name == "setCompileSdk" && it.parameterCount == 1
+                    }
+                if (setCompileSdk != null) {
+                    when (setCompileSdk.parameterTypes[0].name) {
+                        "java.lang.String" -> setCompileSdk.invoke(androidExt, "android-36")
+                        else -> setCompileSdk.invoke(androidExt, 36)
+                    }
+                } else {
+                    androidExt.javaClass
+                        .getMethod("setCompileSdkVersion", Int::class.javaPrimitiveType)
+                        .invoke(androidExt, 36)
                 }
-            if (setCompileSdk != null) {
-                when (setCompileSdk.parameterTypes[0].name) {
-                    "java.lang.String" -> setCompileSdk.invoke(androidExt, "android-36")
-                    else -> setCompileSdk.invoke(androidExt, 36)
-                }
-            } else {
-                androidExt.javaClass
-                    .getMethod("setCompileSdkVersion", Int::class.javaPrimitiveType)
-                    .invoke(androidExt, 36)
             }
         }
 

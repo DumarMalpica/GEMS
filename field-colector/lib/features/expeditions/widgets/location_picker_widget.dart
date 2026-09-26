@@ -116,7 +116,7 @@ class _LocationPickerWidgetState extends State<LocationPickerWidget> {
     });
 
     try {
-      final locations = await geo.locationFromAddress(query);
+      final locations = await geo.Geocoding().locationFromAddress(query);
       if (locations.isEmpty) {
         setState(
           () => _searchError = 'Lugar no encontrado. Intenta otra búsqueda.',

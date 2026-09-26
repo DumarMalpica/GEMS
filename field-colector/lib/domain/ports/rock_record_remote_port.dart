@@ -23,6 +23,11 @@ abstract class RockRecordRemotePort {
   /// Consulta todos los registros de rocas filtrables para exportación a Excel.
   Future<List<RockRecord>> getRockRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
 
+  /// Obtiene los documentos de rocas tal como vienen de Firestore para exportación dinámica.
+  ///
+  /// El resultado es una lista de mapas con los datos brutos del documento, incluyendo el `id`.
+  Future<List<Map<String, dynamic>>> getRawRockRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate});
+
   /// Stream para observar en tiempo real los registros de rocas correspondientes a una expedición ([outingId]).
   Stream<List<RockRecord>> watchRockRecordsByOuting(String outingId);
 }

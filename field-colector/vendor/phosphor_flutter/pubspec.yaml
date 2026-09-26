@@ -1,0 +1,43 @@
+name: phosphor_flutter
+description: >-
+  Vendored copy of phosphor_flutter 2.1.0 (https://github.com/phosphor-icons/phosphor-flutter)
+  patched for Flutter >= 3.32 where IconData is a final class: icon constants are
+  plain IconData instead of subclasses. The PhosphorIcon widget, duotone secondary
+  layers and the PhosphorIcons style-switcher were dropped (unused by this app).
+version: 2.1.0+field.1
+homepage: https://phosphoricons.com/
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.32.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  fonts:
+    - family: PhosphorBold
+      fonts:
+        - asset: lib/fonts/Phosphor-Bold.ttf
+          weight: 400
+    - family: PhosphorDuotone
+      fonts:
+        - asset: lib/fonts/Phosphor-Duotone.ttf
+          weight: 400
+    - family: PhosphorFill
+      fonts:
+        - asset: lib/fonts/Phosphor-Fill.ttf
+          weight: 400
+    - family: PhosphorLight
+      fonts:
+        - asset: lib/fonts/Phosphor-Light.ttf
+          weight: 400
+    - family: PhosphorThin
+      fonts:
+        - asset: lib/fonts/Phosphor-Thin.ttf
+          weight: 400
+    - family: PhosphorRegular
+      fonts:
+        - asset: lib/fonts/Phosphor.ttf
+          weight: 400

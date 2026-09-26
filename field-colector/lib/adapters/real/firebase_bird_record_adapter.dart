@@ -101,6 +101,29 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
   /// Consulta todos los registros de aves filtrables para exportación a Excel.
   @override
   Future<List<BirdRecord>> getBirdRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
+    final snapshot = await _buildExportQuery(
+      outingId: outingId,
+      userId: userId,
+      startDate: startDate,
+      endDate: endDate,
+    ).get();
+    return snapshot.docs.map((doc) => _mapSnapshotToBirdRecord(doc)).toList();
+  }
+
+  /// Obtiene los documentos de aves en bruto para exportación dinámica.
+  @override
+  Future<List<Map<String, dynamic>>> getRawBirdRecordsForExport({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) async {
+    final snapshot = await _buildExportQuery(
+      outingId: outingId,
+      userId: userId,
+      startDate: startDate,
+      endDate: endDate,
+    ).get();
+    return snapshot.docs.map((doc) => _docToRawMap(doc)).toList();
+  }
+
+  /// Construye el query de exportación con los filtros comunes.
+  Query _buildExportQuery({String? outingId, String? userId, DateTime? startDate, DateTime? endDate}) {
     Query query = _firestore.collection(_collection);
 
     if (outingId != null) {
@@ -116,8 +139,13 @@ class FirebaseBirdRecordAdapter implements BirdRecordRemotePort {
       query = query.where('recordedAt', isLessThanOrEqualTo: endDate.toIso8601String());
     }
 
-    final snapshot = await query.get();
-    return snapshot.docs.map((doc) => _mapSnapshotToBirdRecord(doc)).toList();
+    return query;
+  }
+
+  /// Convierte un documento de Firestore en un mapa crudo incluyendo su `id`.
+  Map<String, dynamic> _docToRawMap(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return {'id': doc.id, ...data};
   }
 
   /// Stream para observar en tiempo real los registros de aves correspondientes a una expedición ([outingId]).
