@@ -52,7 +52,9 @@ class _ExpeditionDetailScreenState extends State<ExpeditionDetailScreen> {
   void initState() {
     super.initState();
     _outing = widget.outing;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshOuting());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _refreshOuting(forceRemoteSync: true),
+    );
   }
 
   Future<void> _refreshOuting({bool forceRemoteSync = false}) async {
@@ -186,13 +188,9 @@ class _ExpeditionDetailScreenState extends State<ExpeditionDetailScreen> {
     try {
       final local = context.read<OutingLocalPort>();
       final remote = context.read<OutingRemotePort>();
+      await remote.addPendingUserToOuting(_outing.id, pending);
       await local.addPendingUserToOuting(_outing.id, pending);
-      try {
-        await remote.addPendingUserToOuting(_outing.id, pending);
-      } catch (_) {
-        // Offline: queda en local; sync_service puede reintentar.
-      }
-      await _refreshOuting();
+      await _refreshOuting(forceRemoteSync: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

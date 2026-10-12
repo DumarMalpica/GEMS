@@ -169,8 +169,20 @@ class ExpeditionSyncService {
         a.createdById == b.createdById &&
         _listEquals(a.participantIds, b.participantIds) &&
         a.status == b.status &&
-        a.participants.length == b.participants.length &&
-        a.pendingUsers.length == b.pendingUsers.length;
+        _membersEqual(a.participants, b.participants) &&
+        _membersEqual(a.pendingUsers, b.pendingUsers);
+  }
+
+  bool _membersEqual(List<OutingMember> a, List<OutingMember> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id ||
+          a[i].name != b[i].name ||
+          a[i].email != b[i].email) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _listEquals(List<String> a, List<String> b) {
