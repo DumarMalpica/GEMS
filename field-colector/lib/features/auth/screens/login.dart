@@ -8,10 +8,17 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:provider/provider.dart';
 
-enum _LoginZone { welcome, login, register }
+enum LoginZone { welcome, login, register }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.initialZone = LoginZone.welcome,
+    this.isProfileCompletion = false,
+  });
+
+  final LoginZone initialZone;
+  final bool isProfileCompletion;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -19,7 +26,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
-  _LoginZone _zone = _LoginZone.welcome;
+  late LoginZone _zone = widget.initialZone;
 
   late final AnimationController _zoneController;
   late final AnimationController _formController;
@@ -43,6 +50,11 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 3000),
     );
+
+    if (_isFormZone) {
+      _zoneController.value = 1;
+      _formController.value = 1;
+    }
   }
 
   @override
@@ -54,19 +66,19 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   bool get _isFormZone =>
-      _zone == _LoginZone.login || _zone == _LoginZone.register;
+      _zone == LoginZone.login || _zone == LoginZone.register;
 
-  void _switchTo(_LoginZone zone) {
+  void _switchTo(LoginZone zone) {
     if (zone == _zone) return;
     final prev = _zone;
-    if ((prev == _LoginZone.login && zone == _LoginZone.register) ||
-        (prev == _LoginZone.register && zone == _LoginZone.login)) {
+    if ((prev == LoginZone.login && zone == LoginZone.register) ||
+        (prev == LoginZone.register && zone == LoginZone.login)) {
       context.read<Authprovider>().clearAuthFormError();
     }
     final wasForm = _isFormZone;
     setState(() => _zone = zone);
 
-    if (zone == _LoginZone.login || zone == _LoginZone.register) {
+    if (zone == LoginZone.login || zone == LoginZone.register) {
       if (!wasForm) _zoneController.forward();
       _formController.forward(from: 0);
     } else {
@@ -84,8 +96,8 @@ class _LoginScreenState extends State<LoginScreen>
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          _splashLayer(),
-          _loginLayer(),
+          if (!widget.isProfileCompletion) _splashLayer(),
+          if (!widget.isProfileCompletion) _loginLayer(),
           _registerLayer(),
         ],
       ),
@@ -94,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ── Layer scaffolding ──────────────────────────────────
 
-  Widget _zoneFader({required _LoginZone zone, required Widget child}) {
+  Widget _zoneFader({required LoginZone zone, required Widget child}) {
     return IgnorePointer(
       ignoring: _zone != zone,
       child: AnimatedOpacity(
@@ -109,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _splashLayer() {
     return _zoneFader(
-      zone: _LoginZone.welcome,
+      zone: LoginZone.welcome,
       child: Stack(
         children: [
           const Positioned.fill(child: GemsSplashBackdrop()),
@@ -144,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               GestureDetector(
-                onTap: () => _switchTo(_LoginZone.register),
+                onTap: () => _switchTo(LoginZone.register),
                 behavior: HitTestBehavior.opaque,
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -172,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen>
                 size: 22,
               ),
               GestureDetector(
-                onTap: () => _switchTo(_LoginZone.login),
+                onTap: () => _switchTo(LoginZone.login),
                 behavior: HitTestBehavior.opaque,
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -205,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _loginLayer() {
     return _zoneFader(
-      zone: _LoginZone.login,
+      zone: LoginZone.login,
       child: Column(
         children: [
           _authHeader(
@@ -235,17 +247,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _loginFooter() {
     return GestureDetector(
-      onTap: () => _switchTo(_LoginZone.register),
+      onTap: () => _switchTo(LoginZone.register),
       behavior: HitTestBehavior.opaque,
       child: Text.rich(
         TextSpan(
           children: const [
             TextSpan(
               text: '¿No tienes cuenta? ',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
             ),
             TextSpan(
               text: 'Regístrate',
@@ -266,7 +275,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _registerLayer() {
     return _zoneFader(
-      zone: _LoginZone.register,
+      zone: LoginZone.register,
       child: Column(
         children: [
           _authHeader(
@@ -295,8 +304,10 @@ class _LoginScreenState extends State<LoginScreen>
     required String titleTop,
     required String titleBottom,
   }) {
-    final headerHeight =
-        (MediaQuery.sizeOf(context).height * 0.3).clamp(220.0, 320.0);
+    final headerHeight = (MediaQuery.sizeOf(context).height * 0.3).clamp(
+      220.0,
+      320.0,
+    );
 
     return GemsWaveHeader(
       height: headerHeight,
@@ -310,18 +321,19 @@ class _LoginScreenState extends State<LoginScreen>
             children: [
               Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => _switchTo(_LoginZone.welcome),
-                    behavior: HitTestBehavior.opaque,
-                    child: const Padding(
-                      padding: EdgeInsets.only(right: 8, top: 2, bottom: 2),
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        color: AppColors.secondary,
-                        size: 18,
+                  if (!widget.isProfileCompletion)
+                    GestureDetector(
+                      onTap: () => _switchTo(LoginZone.welcome),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 8, top: 2, bottom: 2),
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          color: AppColors.secondary,
+                          size: 18,
+                        ),
                       ),
                     ),
-                  ),
                   const GemsWordmark(
                     fontSize: 14,
                     baseColor: Colors.white,
@@ -335,11 +347,15 @@ class _LoginScreenState extends State<LoginScreen>
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: '$titleTop\n',
+                      text: widget.isProfileCompletion
+                          ? 'Completa tu perfil\n'
+                          : '$titleTop\n',
                       style: const TextStyle(color: Colors.white),
                     ),
                     TextSpan(
-                      text: titleBottom,
+                      text: widget.isProfileCompletion
+                          ? 'para continuar'
+                          : titleBottom,
                       style: const TextStyle(color: AppColors.secondary),
                     ),
                   ],

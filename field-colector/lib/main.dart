@@ -1,4 +1,5 @@
 import 'package:field_colector/adapters/real/firebase_auth_adapter.dart';
+import 'package:field_colector/adapters/real/event_registration_role_adapter.dart';
 import 'package:field_colector/adapters/real/firebase_social_record_adapter.dart';
 import 'package:field_colector/adapters/real/isar_bird_record_adapter.dart';
 import 'package:field_colector/adapters/real/isar_outing_adapter.dart';
@@ -48,6 +49,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
@@ -60,6 +62,7 @@ import 'package:field_colector/domain/ports/rock_record_remote_port.dart';
 import 'package:field_colector/domain/ports/soil_record_remote_port.dart';
 import 'package:field_colector/domain/ports/species_remote_port.dart';
 import 'package:field_colector/domain/ports/user_remote_port.dart';
+import 'package:field_colector/domain/entities/role.dart';
 import 'package:field_colector/domain/ports/vegetation_record_remote_port.dart';
 import 'package:field_colector/domain/ports/water_record_remote_port.dart';
 
@@ -89,16 +92,14 @@ Future<void> main() async {
   } on FirebaseException catch (e) {
     if (e.code != 'duplicate-app') rethrow;
   }
+  await GoogleSignIn.instance.initialize();
   await FMTCObjectBoxBackend().initialise();
   await initializeDateFormatting('es');
 
   await IsarService.getInstance();
   final userLocalAdapter = IsarUserAdapter();
   final sessionValidation = SessionValidationService(userLocalAdapter);
-  final authPort = FirebaseAuthAdapter(
-    FirebaseAuth.instance,
-    userLocalAdapter,
-  );
+  final authPort = FirebaseAuthAdapter(FirebaseAuth.instance, userLocalAdapter);
 
   final mapServices = MapServices.create();
 
@@ -127,15 +128,21 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider<UserRemotePort>(
+          create: (_) => FirebaseUserAdapter(FirebaseFirestore.instance),
+        ),
         ChangeNotifierProvider(
-          create: (_) => Authprovider(
+          create: (context) => Authprovider(
             authPort: authPort,
+            registrationRole: EventRegistrationRoleAdapter(
+              role: Role.legacy,
+              endsAt: DateTime.utc(2026, 10, 11, 5),
+            ),
+            userRemote: context.read<UserRemotePort>(),
             sessionValidation: sessionValidation,
           ),
         ),
-        ChangeNotifierProvider(
-          create: (_) => ManualIntroProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => ManualIntroProvider()),
         ChangeNotifierProvider(create: (_) => FormDraftService()),
         Provider<MapServices>.value(value: mapServices),
         ChangeNotifierProvider(
@@ -150,24 +157,43 @@ class MyApp extends StatelessWidget {
               GeolocatorProvider(context.read<SettingsProvider>()),
         ),
 
-        Provider<BirdRecordRemotePort>(create: (_) => FirebaseBirdRecordAdapter(FirebaseFirestore.instance)),
+        Provider<BirdRecordRemotePort>(
+          create: (_) => FirebaseBirdRecordAdapter(FirebaseFirestore.instance),
+        ),
         Provider<BirdRecordLocalPort>(create: (_) => IsarBirdRecordAdapter()),
-        Provider<RockRecordRemotePort>(create: (_) => FirebaseRockRecordAdapter(FirebaseFirestore.instance)),
+        Provider<RockRecordRemotePort>(
+          create: (_) => FirebaseRockRecordAdapter(FirebaseFirestore.instance),
+        ),
         Provider<RockRecordLocalPort>(create: (_) => IsarRockRecordAdapter()),
-        Provider<SoilRecordRemotePort>(create: (_) => FirebaseSoilRecordAdapter(FirebaseFirestore.instance)),
+        Provider<SoilRecordRemotePort>(
+          create: (_) => FirebaseSoilRecordAdapter(FirebaseFirestore.instance),
+        ),
         Provider<SoilRecordLocalPort>(create: (_) => IsarSoilRecordAdapter()),
-        Provider<VegetationRecordRemotePort>(create: (_) => FirebaseVegetationRecordAdapter(FirebaseFirestore.instance)),
-        Provider<VegetationRecordLocalPort>(create: (_) => IsarVegetationRecordAdapter()),
-        Provider<WaterRecordRemotePort>(create: (_) => FirebaseWaterRecordAdapter(FirebaseFirestore.instance)),
+        Provider<VegetationRecordRemotePort>(
+          create: (_) =>
+              FirebaseVegetationRecordAdapter(FirebaseFirestore.instance),
+        ),
+        Provider<VegetationRecordLocalPort>(
+          create: (_) => IsarVegetationRecordAdapter(),
+        ),
+        Provider<WaterRecordRemotePort>(
+          create: (_) => FirebaseWaterRecordAdapter(FirebaseFirestore.instance),
+        ),
         Provider<WaterRecordLocalPort>(create: (_) => IsarWaterRecordAdapter()),
         Provider<SocialRecordRemotePort>(
-          create: (_) => FirebaseSocialRecordAdapter(FirebaseFirestore.instance),
+          create: (_) =>
+              FirebaseSocialRecordAdapter(FirebaseFirestore.instance),
         ),
-        Provider<SocialRecordLocalPort>(create: (_) => IsarSocialRecordAdapter()),
-        Provider<OutingRemotePort>(create: (_) => FirebaseOutingAdapter(FirebaseFirestore.instance)),
+        Provider<SocialRecordLocalPort>(
+          create: (_) => IsarSocialRecordAdapter(),
+        ),
+        Provider<OutingRemotePort>(
+          create: (_) => FirebaseOutingAdapter(FirebaseFirestore.instance),
+        ),
         Provider<OutingLocalPort>(create: (_) => IsarOutingAdapter()),
-        Provider<SpeciesRemotePort>(create: (_) => FirebaseSpeciesAdapter(FirebaseFirestore.instance)),
-        Provider<UserRemotePort>(create: (_) => FirebaseUserAdapter(FirebaseFirestore.instance)),
+        Provider<SpeciesRemotePort>(
+          create: (_) => FirebaseSpeciesAdapter(FirebaseFirestore.instance),
+        ),
         Provider<PhotoLocalPort>(create: (_) => PhotoStorageAdapter()),
         Provider<FormMapperRegistry>(create: (_) => FormMapperRegistry()),
         Provider<ExpeditionSyncService>(
@@ -215,9 +241,8 @@ class MyApp extends StatelessWidget {
           )..init(),
         ),
         Provider<UserCacheService>(
-          create: (context) => UserCacheService(
-            userRemote: context.read<UserRemotePort>(),
-          ),
+          create: (context) =>
+              UserCacheService(userRemote: context.read<UserRemotePort>()),
         ),
         Provider<RecordSubmitService>(
           create: (context) => RecordSubmitService(
@@ -233,10 +258,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider<ProfileProvider>(
-          create: (context) => ProfileProvider(
-            auth: context.read<Authprovider>(),
-            userRemote: context.read<UserRemotePort>(),
-          ),
+          create: (context) =>
+              ProfileProvider(auth: context.read<Authprovider>()),
         ),
         ChangeNotifierProvider(
           create: (context) => NearbyRecordsProvider(
@@ -294,9 +317,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider<ExportProvider>(
-          create: (context) => ExportProvider(
-            exportService: context.read<ExportService>(),
-          ),
+          create: (context) =>
+              ExportProvider(exportService: context.read<ExportService>()),
         ),
       ],
       child: MaterialApp(
@@ -308,10 +330,7 @@ class MyApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        supportedLocales: const [
-          Locale('es'),
-          Locale('en'),
-        ],
+        supportedLocales: const [Locale('es'), Locale('en')],
         home: const HomeScreen(),
       ),
     );

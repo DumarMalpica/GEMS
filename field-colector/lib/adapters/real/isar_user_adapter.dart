@@ -6,17 +6,13 @@ import '../../core/database/isar_service.dart';
 import 'user_model.dart';
 
 class IsarUserAdapter implements UserLocalPort {
-
   /// guardado del token despues del login
   @override
   Future<void> saveUser(User user) async {
     final isar = await IsarService.getInstance();
 
     final query = isar.userModels.buildQuery<UserModel>(
-      filter: FilterCondition.equalTo(
-        property: 'firebaseId',
-        value: user.id,
-      ),
+      filter: FilterCondition.equalTo(property: 'firebaseId', value: user.id),
       limit: 1,
     );
     final results = await query.findAll();
@@ -33,6 +29,7 @@ class IsarUserAdapter implements UserLocalPort {
       ..token = user.token
       ..tokenExpiry = user.tokenExpiry
       ..isActive = user.isActive
+      ..profileComplete = user.profileComplete
       ..createdAt = user.createdAt ?? DateTime.now();
 
     await isar.writeTxn(() async {
@@ -46,10 +43,7 @@ class IsarUserAdapter implements UserLocalPort {
     final isar = await IsarService.getInstance();
 
     final query = isar.userModels.buildQuery<UserModel>(
-      filter: FilterCondition.equalTo(
-        property: 'isActive',
-        value: true,
-      ),
+      filter: FilterCondition.equalTo(property: 'isActive', value: true),
       limit: 1,
     );
     final results = await query.findAll();
@@ -66,10 +60,7 @@ class IsarUserAdapter implements UserLocalPort {
     final isar = await IsarService.getInstance();
 
     final query = isar.userModels.buildQuery<UserModel>(
-      filter: FilterCondition.equalTo(
-        property: 'isActive',
-        value: true,
-      ),
+      filter: FilterCondition.equalTo(property: 'isActive', value: true),
       limit: 1,
     );
     final results = await query.findAll();

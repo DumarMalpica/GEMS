@@ -69,12 +69,27 @@ class _ProfileSectionState extends State<ProfileSection> {
 
     if (user == null) {
       return const Center(
-        child: Text(
-          'Sin sesión activa',
-          style: AppStyles.body,
-        ),
+        child: Text('Sin sesión activa', style: AppStyles.body),
       );
     }
+    final roleId = user.role.id.trim().toLowerCase();
+    final styleRoleId = roleId == 'unicorn' ? 'unicor' : roleId;
+    final isUnicor = styleRoleId == 'unicor';
+    final isLegacy = styleRoleId == 'legacy';
+    final roleColor = switch (styleRoleId) {
+      'admin' => const Color(0xFFB3261E),
+      'user' => const Color(0xFF1976D2),
+      'unicor' => const Color(0xFFD52F9C),
+      'legacy' => const Color(0xFFD6A52D),
+      _ => AppColors.primary,
+    };
+    final roleBackground = switch (styleRoleId) {
+      'admin' => const Color(0xFFFFF1F0),
+      'user' => const Color(0xFFEAF3FF),
+      'unicor' => const Color(0xFFFFF0F8),
+      'legacy' => const Color(0xFFFFF8E5),
+      _ => AppColors.surface,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -87,9 +102,9 @@ class _ProfileSectionState extends State<ProfileSection> {
                 child: Text(
                   'Perfil',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (profile.isLoading)
@@ -100,13 +115,11 @@ class _ProfileSectionState extends State<ProfileSection> {
                 )
               else
                 IconButton(
-                  tooltip: 'Actualizar',
-                  onPressed: () => profile.refresh(),
-                  icon: Icon(
-                    Icons.refresh,
-                    color: AppColors.primary,
-                    size: 22,
-                  ),
+                  tooltip: profile.canRefresh
+                      ? 'Actualizar'
+                      : 'Límite de 2 lecturas por sesión alcanzado',
+                  onPressed: profile.canRefresh ? profile.refresh : null,
+                  icon: Icon(Icons.refresh, color: AppColors.primary, size: 22),
                 ),
             ],
           ),
@@ -124,15 +137,40 @@ class _ProfileSectionState extends State<ProfileSection> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
               Center(
-                child: CircleAvatar(
-                  radius: 40,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    _initials(user.fullName),
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textOnPrimary,
+                child: Container(
+                  padding: EdgeInsets.all(isUnicor || isLegacy ? 7 : 0),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isLegacy ? const Color(0xFFFFE7A3) : null,
+                    gradient: isUnicor
+                        ? const SweepGradient(
+                            colors: [
+                              Color(0xFFFF4D8D),
+                              Color(0xFFFFC857),
+                              Color(0xFF53D6A5),
+                              Color(0xFF54A8FF),
+                              Color(0xFFB66DFF),
+                              Color(0xFFFF4D8D),
+                            ],
+                          )
+                        : null,
+                  ),
+                  child: CircleAvatar(
+                    radius: 42,
+                    backgroundColor: isLegacy
+                        ? const Color(0xFFFFF8E5)
+                        : isUnicor
+                        ? const Color(0xFF472275)
+                        : roleColor,
+                    child: Text(
+                      _initials(user.fullName),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                        color: isLegacy
+                            ? const Color(0xFF775500)
+                            : AppColors.textOnPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -149,7 +187,8 @@ class _ProfileSectionState extends State<ProfileSection> {
                 label: 'Correo',
                 value: user.email,
               ),
-              if (user.fieldStudy != null && user.fieldStudy!.trim().isNotEmpty) ...[
+              if (user.fieldStudy != null &&
+                  user.fieldStudy!.trim().isNotEmpty) ...[
                 const SizedBox(height: 10),
                 _InfoCard(
                   icon: PhosphorIconsRegular.graduationCap,
@@ -162,17 +201,31 @@ class _ProfileSectionState extends State<ProfileSection> {
                 icon: PhosphorIconsRegular.shield,
                 label: 'Rol',
                 value: user.role.name,
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: AppStyles.badgeInfo,
-                  child: Text(
-                    user.role.id,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                borderGradient: isUnicor
+                    ? const SweepGradient(
+                        colors: [
+                          Color(0xFFFF4D8D),
+                          Color(0xFFFFC857),
+                          Color(0xFF53D6A5),
+                          Color(0xFF54A8FF),
+                          Color(0xFFB66DFF),
+                          Color(0xFFFF4D8D),
+                        ],
+                      )
+                    : null,
+                decoration: BoxDecoration(
+                  color: roleBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  border: isUnicor
+                      ? null
+                      : Border.all(color: roleColor, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: roleColor.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      spreadRadius: 1,
                     ),
-                  ),
+                  ],
                 ),
               ),
               if (user.createdAt != null) ...[
@@ -219,18 +272,20 @@ class _InfoCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    this.trailing,
+    this.decoration,
+    this.borderGradient,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final Widget? trailing;
+  final BoxDecoration? decoration;
+  final Gradient? borderGradient;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: AppStyles.card,
+    final card = Container(
+      decoration: decoration ?? AppStyles.card,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,10 +296,7 @@ class _InfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: AppStyles.caption,
-                ),
+                Text(label, style: AppStyles.caption),
                 const SizedBox(height: 4),
                 Text(
                   value,
@@ -257,9 +309,19 @@ class _InfoCard extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
         ],
       ),
+    );
+    if (borderGradient == null) return card;
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        gradient: borderGradient,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: decoration?.boxShadow,
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(10), child: card),
     );
   }
 }

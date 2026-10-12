@@ -173,8 +173,18 @@ class FirebaseOutingAdapter implements OutingRemotePort {
   /// Añade un usuario pendiente de confirmación a una salida.
   @override
   Future<void> addPendingUserToOuting(String outingId, PendingUser user) async {
+    final userDoc = await _firestore.collection('users').doc(user.id).get();
+    final profile = userDoc.data();
+    if (profile == null) {
+      throw StateError('No se encontró el perfil del solicitante.');
+    }
+    final applicant = PendingUser(
+      id: user.id,
+      name: profile['fullName'] ?? '',
+      email: profile['email'] ?? '',
+    );
     await _firestore.collection(_collection).doc(outingId).update({
-      'pendingUsers': FieldValue.arrayUnion([user.toMap()]),
+      'pendingUsers': FieldValue.arrayUnion([applicant.toMap()]),
     });
   }
 

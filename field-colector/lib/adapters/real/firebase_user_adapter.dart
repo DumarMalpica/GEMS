@@ -17,9 +17,12 @@ class FirebaseUserAdapter implements UserRemotePort {
       'email': user.email,
       'fullName': user.fullName,
       'fieldStudy': user.fieldStudy,
+      'graduated': user.graduated,
+      'profileComplete': user.profileComplete,
       'role': user.role.id,
-      'createdAt': user.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
-    });
+      'createdAt':
+          user.createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
   }
 
   /// Actualiza un registro existente de User en Firestore con los nuevos datos.
@@ -45,7 +48,8 @@ class FirebaseUserAdapter implements UserRemotePort {
   /// Recupera un usuario ([User]) por su [email]. Retorna null si no existe.
   @override
   Future<User?> getUserByEmail(String email) async {
-    final snapshot = await _firestore.collection(_collection)
+    final snapshot = await _firestore
+        .collection(_collection)
         .where('email', isEqualTo: email)
         .limit(1)
         .get();
@@ -56,11 +60,12 @@ class FirebaseUserAdapter implements UserRemotePort {
 
   @override
   Future<UserSearchResult> searchUsersByName(
-      String name, {
-        int limit = 10,
-        DocumentSnapshot? lastDocument,
-      }) async {
-    Query query = _firestore.collection(_collection)
+    String name, {
+    int limit = 10,
+    DocumentSnapshot? lastDocument,
+  }) async {
+    Query query = _firestore
+        .collection(_collection)
         .where('fullName', isGreaterThanOrEqualTo: name)
         .where('fullName', isLessThanOrEqualTo: '$name\uf8ff')
         .orderBy('fullName')
@@ -81,11 +86,12 @@ class FirebaseUserAdapter implements UserRemotePort {
   /// Obtiene de forma paginada un listado de usuarios filtrados por [roleString].
   @override
   Future<UserSearchResult> getUsersByRole(
-      String roleString, {
-        int limit = 10,
-        DocumentSnapshot? lastDocument,
-      }) async {
-    Query query = _firestore.collection(_collection)
+    String roleString, {
+    int limit = 10,
+    DocumentSnapshot? lastDocument,
+  }) async {
+    Query query = _firestore
+        .collection(_collection)
         .where('role', isEqualTo: roleString)
         .orderBy('createdAt', descending: true)
         .limit(limit);
@@ -108,7 +114,8 @@ class FirebaseUserAdapter implements UserRemotePort {
     int limit = 20,
     DocumentSnapshot? lastDocument,
   }) async {
-    Query query = _firestore.collection(_collection)
+    Query query = _firestore
+        .collection(_collection)
         .orderBy('createdAt', descending: true)
         .limit(limit);
 
@@ -124,7 +131,6 @@ class FirebaseUserAdapter implements UserRemotePort {
     );
   }
 
-
   /// Mapea un documento de Firestore (`DocumentSnapshot`) a una entidad de dominio `User`.
   User _mapSnapshotToUser(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -133,8 +139,14 @@ class FirebaseUserAdapter implements UserRemotePort {
       email: data['email'] ?? '',
       fullName: data['fullName'] ?? '',
       fieldStudy: data['fieldStudy'],
-      role: Role.fromId(data['role'] ?? 'user'),
-      createdAt: data['createdAt'] != null ? DateTime.parse(data['createdAt']) : null,
+      graduated: data['graduated'] ?? false,
+      role: Role.fromId(
+        data['role'] is String ? data['role'] as String : 'user',
+      ),
+      profileComplete: data['profileComplete'] ?? true,
+      createdAt: data['createdAt'] != null
+          ? DateTime.parse(data['createdAt'])
+          : null,
     );
   }
 }

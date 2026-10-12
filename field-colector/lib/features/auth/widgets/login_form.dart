@@ -2,6 +2,7 @@ import 'package:field_colector/domain/mappers/login_user.dart';
 import 'package:field_colector/features/auth/providers/auth_provider.dart';
 import 'package:field_colector/features/auth/theme/auth_form_theme.dart';
 import 'package:field_colector/features/auth/widgets/gems_design.dart';
+import 'package:field_colector/features/auth/widgets/google_sign_in_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -165,6 +166,19 @@ class _LoginFormState extends State<LoginForm> {
               child: const Text('¿Olvidaste tu contraseña?'),
             ),
           ),
+          const SizedBox(height: 16),
+          const Row(
+            children: [
+              Expanded(child: Divider()),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: Text('o'),
+              ),
+              Expanded(child: Divider()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const GoogleSignInButton(),
         ],
       ),
     );

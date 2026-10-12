@@ -32,12 +32,15 @@ subprojects {
                 runCatching {
                         val getter =
                             androidExt.javaClass.methods.find {
+                                it.name == "getCompileSdk" && it.parameterCount == 0
+                            } ?: androidExt.javaClass.methods.find {
                                 it.name == "getCompileSdkVersion" && it.parameterCount == 0
                             }
-                        (getter?.invoke(androidExt) as? String)
-                            ?.removePrefix("android-")
-                            ?.toIntOrNull()
-                            ?: 0
+                        when (val version = getter?.invoke(androidExt)) {
+                            is Number -> version.toInt()
+                            is String -> version.removePrefix("android-").toIntOrNull() ?: 0
+                            else -> 0
+                        }
                     }
                     .getOrDefault(0)
             if (currentApi < 36) {

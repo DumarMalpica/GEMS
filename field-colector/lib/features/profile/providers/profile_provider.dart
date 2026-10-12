@@ -1,5 +1,4 @@
 import 'package:field_colector/domain/entities/user.dart';
-import 'package:field_colector/domain/ports/user_remote_port.dart';
 import 'package:field_colector/features/auth/providers/auth_provider.dart';
 import 'package:flutter/foundation.dart';
 
@@ -7,22 +6,18 @@ import 'package:flutter/foundation.dart';
 ///
 /// [logout] limpia caché y delega en [Authprovider.logout].
 class ProfileProvider extends ChangeNotifier {
-  ProfileProvider({
-    required Authprovider auth,
-    required UserRemotePort userRemote,
-  })  : _auth = auth,
-        _userRemote = userRemote {
+  ProfileProvider({required Authprovider auth}) : _auth = auth {
     _auth.addListener(_onAuthChanged);
   }
 
   final Authprovider _auth;
-  final UserRemotePort _userRemote;
 
   User? _cachedProfile;
   bool _isLoading = false;
   String? _errorMessage;
-
   bool get isLoading => _isLoading;
+
+  bool get canRefresh => _auth.canReadRemoteProfile;
 
   String? get errorMessage => _errorMessage;
 
@@ -60,18 +55,23 @@ class ProfileProvider extends ChangeNotifier {
       return;
     }
 
-    if (!force &&
-        _cachedProfile != null &&
-        _cachedProfile!.id == authUser.id) {
+    if (!force && _cachedProfile != null && _cachedProfile!.id == authUser.id) {
       return;
     }
+
+    if (!force && _auth.hasReadRemoteProfile) {
+      _cachedProfile = authUser;
+      return;
+    }
+
+    if (_isLoading || !canRefresh) return;
 
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final remote = await _userRemote.getUserById(authUser.id);
+      final remote = await _auth.readRemoteProfile();
       if (remote != null) {
         _cachedProfile = _mergeRemoteWithAuthSession(remote, authUser);
       } else {
@@ -79,7 +79,8 @@ class ProfileProvider extends ChangeNotifier {
       }
       _errorMessage = null;
     } catch (_) {
-      _errorMessage = 'No se pudo sincronizar el perfil. Mostrando datos locales.';
+      _errorMessage =
+          'No se pudo sincronizar el perfil. Mostrando datos locales.';
       _cachedProfile = authUser;
     } finally {
       _isLoading = false;
@@ -99,7 +100,6 @@ class ProfileProvider extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    _cachedProfile = null;
     await loadProfile(force: true);
   }
 

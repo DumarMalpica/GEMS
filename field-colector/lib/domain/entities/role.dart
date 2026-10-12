@@ -1,10 +1,11 @@
 /// Entidad pura de dominio — perfil de acceso dentro del sistema.
 /// Sin anotaciones de Isar ni dependencias de Flutter.
 ///
-/// El sistema maneja dos roles:
+/// Roles de acceso y distintivos de usuario:
 ///   - [admin]: acceso total al sistema, puede crear/cerrar expediciones y exportar.
 ///   - [user]: usuario base. Sus permisos de registro dependen de su
 ///     membresía a una expedición, no de este rol.
+///   - [unicor] y [legacy]: distintivos sin permisos adicionales.
 class Role {
   /// Identificador único del rol (e.g. 'admin', 'user').
   final String id;
@@ -51,13 +52,36 @@ class Role {
     isAdmin: false,
   );
 
-  /// Retorna un Role por su id. Si no existe retorna [user] por defecto.
+  static const Role unicor = Role(
+    id: 'unicor',
+    name: 'Unicor',
+    permissions: [],
+  );
+
+  static const Role legacy = Role(
+    id: 'legacy',
+    name: 'Legacy',
+    permissions: [],
+  );
+
+  /// Retorna rol conocido o conserva identificador desconocido sin permisos.
   static Role fromId(String id) {
-    switch (id) {
+    final normalizedId = id.trim().toLowerCase();
+    switch (normalizedId) {
       case 'admin':
         return admin;
-      default:
+      case 'unicor':
+        return unicor;
+      case 'legacy':
+        return legacy;
+      case 'user':
         return user;
+      default:
+        return Role(
+          id: normalizedId,
+          name: normalizedId,
+          permissions: const [],
+        );
     }
   }
 

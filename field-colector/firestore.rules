@@ -1,0 +1,166 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Admin status is controlled by the users document, not by client input.
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOutingMember(outingId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/outings/$(outingId))
+        && (
+          get(/databases/$(database)/documents/outings/$(outingId)).data.createdById == request.auth.uid
+          || get(/databases/$(database)/documents/outings/$(outingId)).data.participantIds.hasAny([request.auth.uid])
+        );
+    }
+
+    function isOutingOwner(outingId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/outings/$(outingId))
+        && get(/databases/$(database)/documents/outings/$(outingId)).data.createdById == request.auth.uid;
+    }
+
+    function canSubmitJoinRequest(outingId) {
+      let before = resource.data.get('pendingUsers', []);
+      let after = request.resource.data.get('pendingUsers', []);
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      let profile = get(userPath).data;
+      let applicant = {
+        'id': request.auth.uid,
+        'name': profile.get('fullName', ''),
+        'email': profile.get('email', '')
+      };
+      return signedIn()
+        && !isOutingMember(outingId)
+        && exists(userPath)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['pendingUsers'])
+        && before is list
+        && after is list
+        && after.size() == before.size() + 1
+        && after.hasAll(before)
+        && !before.hasAny([applicant])
+        && after.hasAny([applicant]);
+    }
+
+    function canCreateRecord() {
+      return signedIn()
+        && request.resource.data.userId == request.auth.uid
+        && isOutingMember(request.resource.data.outingId);
+    }
+
+    function canModifyRecord() {
+      // Check common owner path first to avoid the admin-document lookup.
+      return (
+        signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.outingId == resource.data.outingId
+        && isOutingMember(resource.data.outingId)
+      ) || isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create: if isSelf(userId)
+        && request.resource.data.profileComplete is bool
+        && (
+          request.resource.data.role == 'user'
+          || (
+            request.resource.data.role == 'legacy'
+            && request.time.toMillis() < 1791694800000
+          )
+        );
+      allow update: if (
+        isSelf(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['fullName', 'fieldStudy', 'graduated', 'profileComplete'])
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.profileComplete == true
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() > 1
+        && request.resource.data.fieldStudy is string
+        && request.resource.data.fieldStudy.size() > 0
+      ) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /outings/{outingId} {
+      // The current app downloads outings with an unfiltered query.
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.createdById == request.auth.uid
+        && request.resource.data.participantIds.hasAny([request.auth.uid]);
+
+      allow update: if (
+        isOutingOwner(outingId)
+        && request.resource.data.createdById == resource.data.createdById
+      )
+        // Members can only change pending requests; applicants can only add themselves.
+        || (
+          isOutingMember(outingId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['pendingUsers'])
+        )
+        || canSubmitJoinRequest(outingId)
+        || isAdmin();
+
+      allow delete: if isOutingOwner(outingId) || isAdmin();
+    }
+
+    match /bird_records/{recordId} {
+      allow read: if signedIn();
+      allow create: if canCreateRecord();
+      allow update, delete: if canModifyRecord();
+    }
+
+    match /rock_records/{recordId} {
+      allow read: if signedIn();
+      allow create: if canCreateRecord();
+      allow update, delete: if canModifyRecord();
+    }
+
+    match /soil_records/{recordId} {
+      allow read: if signedIn();
+      allow create: if canCreateRecord();
+      allow update, delete: if canModifyRecord();
+    }
+
+    match /vegetation_records/{recordId} {
+      allow read: if signedIn();
+      allow create: if canCreateRecord();
+      allow update, delete: if canModifyRecord();
+    }
+
+    match /water_records/{recordId} {
+      allow read: if signedIn();
+      allow create: if canCreateRecord();
+      allow update, delete: if canModifyRecord();
+    }
+
+    match /social_records/{recordId} {
+      allow read: if signedIn();
+      allow create: if canCreateRecord();
+      allow update, delete: if canModifyRecord();
+    }
+
+    match /speciess/{speciesId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

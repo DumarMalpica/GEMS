@@ -29,6 +29,7 @@ class UserModel {
   DateTime? tokenExpiry;
 
   bool isActive = true;
+  bool profileComplete = true;
   DateTime? createdAt;
 
   /// Convierte el modelo Isar a la entidad pura de dominio.
@@ -43,6 +44,7 @@ class UserModel {
       token: token,
       tokenExpiry: tokenExpiry,
       isActive: isActive,
+      profileComplete: profileComplete,
       createdAt: createdAt,
     );
   }
@@ -59,6 +61,7 @@ class UserModel {
       ..token = user.token
       ..tokenExpiry = user.tokenExpiry
       ..isActive = user.isActive
+      ..profileComplete = user.profileComplete
       ..createdAt = user.createdAt;
   }
 }
