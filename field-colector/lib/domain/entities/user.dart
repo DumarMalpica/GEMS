@@ -33,6 +33,9 @@ class User {
   /// Indica si el usuario está activo en la plataforma o fue deshabilitado.
   final bool isActive;
 
+  /// Indica si completó los datos requeridos por el perfil de la aplicación.
+  final bool profileComplete;
+
   /// Fecha de registro de la cuenta en el sistema.
   final DateTime? createdAt;
 
@@ -46,6 +49,7 @@ class User {
     this.token,
     this.tokenExpiry,
     this.isActive = true,
+    this.profileComplete = true,
     this.createdAt,
   });
 
@@ -70,6 +74,7 @@ class User {
     String? token,
     DateTime? tokenExpiry,
     bool? isActive,
+    bool? profileComplete,
     DateTime? createdAt,
   }) {
     return User(
@@ -82,6 +87,7 @@ class User {
       token: token ?? this.token,
       tokenExpiry: tokenExpiry ?? this.tokenExpiry,
       isActive: isActive ?? this.isActive,
+      profileComplete: profileComplete ?? this.profileComplete,
       createdAt: createdAt ?? this.createdAt,
     );
   }

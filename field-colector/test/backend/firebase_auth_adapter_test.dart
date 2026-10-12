@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:google_sign_in/google_sign_in.dart' as google;
 
 import 'package:field_colector/adapters/real/firebase_auth_adapter.dart';
 import 'package:field_colector/domain/ports/user_local_port.dart';
@@ -9,11 +10,23 @@ import 'package:field_colector/domain/entities/user.dart';
 import 'package:field_colector/domain/entities/role.dart';
 
 class MockFirebaseAuth extends Mock implements fb.FirebaseAuth {}
+
+class MockGoogleSignIn extends Mock implements google.GoogleSignIn {}
+
 class MockUserCredential extends Mock implements fb.UserCredential {}
+
 class MockFirebaseUser extends Mock implements fb.User {}
+
 class MockIdTokenResult extends Mock implements fb.IdTokenResult {}
+
 class MockUserMetadata extends Mock implements fb.UserMetadata {}
+
 class MockUserLocalPort extends Mock implements UserLocalPort {}
+
+class MockGoogleAccount extends Mock implements google.GoogleSignInAccount {}
+
+class MockGoogleAuthentication extends Mock
+    implements google.GoogleSignInAuthentication {}
 
 class FakeUser extends Fake implements User {}
 
@@ -24,6 +37,7 @@ void main() {
 
   group('FirebaseAuthAdapter', () {
     late MockFirebaseAuth mockFirebaseAuth;
+    late MockGoogleSignIn mockGoogleSignIn;
     late MockUserLocalPort mockUserLocalPort;
     late FirebaseAuthAdapter adapter;
 
@@ -34,15 +48,34 @@ void main() {
 
     setUp(() {
       mockFirebaseAuth = MockFirebaseAuth();
+      mockGoogleSignIn = MockGoogleSignIn();
       mockUserLocalPort = MockUserLocalPort();
       mockFbUser = MockFirebaseUser();
       mockCredential = MockUserCredential();
       mockTokenResult = MockIdTokenResult();
       mockMetadata = MockUserMetadata();
 
-      adapter = FirebaseAuthAdapter(mockFirebaseAuth, mockUserLocalPort);
+      adapter = FirebaseAuthAdapter(
+        mockFirebaseAuth,
+        mockUserLocalPort,
+        googleSignIn: mockGoogleSignIn,
+      );
+      when(
+        () => mockUserLocalPort.getRawLocalUser(),
+      ).thenAnswer((_) async => null);
     });
 
+    test('cancelar Google retorna null y permite volver a intentar', () async {
+      when(() => mockGoogleSignIn.authenticate()).thenThrow(
+        const google.GoogleSignInException(
+          code: google.GoogleSignInExceptionCode.canceled,
+        ),
+      );
+
+      expect(await adapter.loginWithExternalProvider(), isNull);
+      expect(await adapter.loginWithExternalProvider(), isNull);
+      verify(() => mockGoogleSignIn.authenticate()).called(2);
+    });
 
     test('login exitoso: Autentica en Firebase y guarda en Isar', () async {
       final expiracion = DateTime.now().add(const Duration(hours: 1));
@@ -56,14 +89,18 @@ void main() {
       when(() => mockFbUser.email).thenReturn('nicolas@citesa.co');
       when(() => mockFbUser.displayName).thenReturn('Nicolas Tinjaca');
       when(() => mockFbUser.metadata).thenReturn(mockMetadata);
-      when(() => mockFbUser.getIdTokenResult()).thenAnswer((_) async => mockTokenResult);
+      when(
+        () => mockFbUser.getIdTokenResult(),
+      ).thenAnswer((_) async => mockTokenResult);
 
       when(() => mockCredential.user).thenReturn(mockFbUser);
 
-      when(() => mockFirebaseAuth.signInWithEmailAndPassword(
-        email: 'nicolas@citesa.co',
-        password: 'Password123!',
-      )).thenAnswer((_) async => mockCredential);
+      when(
+        () => mockFirebaseAuth.signInWithEmailAndPassword(
+          email: 'nicolas@citesa.co',
+          password: 'Password123!',
+        ),
+      ).thenAnswer((_) async => mockCredential);
 
       when(() => mockUserLocalPort.saveUser(any())).thenAnswer((_) async => {});
 
@@ -85,7 +122,9 @@ void main() {
       when(() => mockFbUser.email).thenReturn('e@e.co');
       when(() => mockFbUser.displayName).thenReturn('Name');
       when(() => mockFbUser.metadata).thenReturn(mockMetadata);
-      when(() => mockFbUser.getIdTokenResult()).thenAnswer((_) async => mockTokenResult);
+      when(
+        () => mockFbUser.getIdTokenResult(),
+      ).thenAnswer((_) async => mockTokenResult);
       when(() => mockFirebaseAuth.currentUser).thenReturn(mockFbUser);
       when(() => mockUserLocalPort.saveUser(any())).thenAnswer((_) async => {});
 
@@ -103,23 +142,30 @@ void main() {
       verifyNever(() => mockUserLocalPort.saveUser(any()));
     });
 
-    test('login fallido: Lanza AuthException si las credenciales son incorrectas', () async {
-      when(() => mockFirebaseAuth.signInWithEmailAndPassword(
-        email: 'nicolas@citesa.co',
-        password: 'clave_mala',
-      )).thenThrow(fb.FirebaseAuthException(code: 'wrong-password'));
+    test(
+      'login fallido: Lanza AuthException si las credenciales son incorrectas',
+      () async {
+        when(
+          () => mockFirebaseAuth.signInWithEmailAndPassword(
+            email: 'nicolas@citesa.co',
+            password: 'clave_mala',
+          ),
+        ).thenThrow(fb.FirebaseAuthException(code: 'wrong-password'));
 
-      expect(
-            () => adapter.login('nicolas@citesa.co', 'clave_mala'),
-        throwsA(isA<AuthException>().having(
+        expect(
+          () => adapter.login('nicolas@citesa.co', 'clave_mala'),
+          throwsA(
+            isA<AuthException>().having(
               (e) => e.type,
-          'tipo de error',
-          AuthErrorType.invalidCredentials,
-        )),
-      );
+              'tipo de error',
+              AuthErrorType.invalidCredentials,
+            ),
+          ),
+        );
 
-      verifyNever(() => mockUserLocalPort.saveUser(any()));
-    });
+        verifyNever(() => mockUserLocalPort.saveUser(any()));
+      },
+    );
 
     group('register', () {
       test('weak-password → AuthException weakPassword', () async {
@@ -217,11 +263,7 @@ void main() {
           throwsA(
             isA<AuthException>()
                 .having((e) => e.type, 'type', AuthErrorType.unknown)
-                .having(
-                  (e) => e.message,
-                  'message',
-                  contains('administrador'),
-                ),
+                .having((e) => e.message, 'message', contains('administrador')),
           ),
         );
 
@@ -255,31 +297,40 @@ void main() {
       });
     });
 
+    test(
+      'validateOfflineSession: Retorna usuario si hay token local válido',
+      () async {
+        final localUser = User(
+          id: '1',
+          email: 'test@test.com',
+          fullName: 'Test',
+          role: Role.user,
+          token: 'token_viejo',
+          tokenExpiry: DateTime.now().add(const Duration(days: 1)), // Válido
+        );
 
-    test('validateOfflineSession: Retorna usuario si hay token local válido', () async {
-      final localUser = User(
-        id: '1',
-        email: 'test@test.com',
-        fullName: 'Test',
-        role: Role.user,
-        token: 'token_viejo',
-        tokenExpiry: DateTime.now().add(const Duration(days: 1)), // Válido
-      );
+        when(
+          () => mockUserLocalPort.getLocalUser(),
+        ).thenAnswer((_) async => localUser);
 
-      when(() => mockUserLocalPort.getLocalUser()).thenAnswer((_) async => localUser);
+        final session = await adapter.validateOfflineSession();
 
-      final session = await adapter.validateOfflineSession();
+        expect(session, isNotNull);
+        expect(session!.hasValidToken, isTrue);
+      },
+    );
 
-      expect(session, isNotNull);
-      expect(session!.hasValidToken, isTrue);
-    });
+    test(
+      'validateOfflineSession: Retorna null si el token expiró o no existe',
+      () async {
+        when(
+          () => mockUserLocalPort.getLocalUser(),
+        ).thenAnswer((_) async => null);
 
-    test('validateOfflineSession: Retorna null si el token expiró o no existe', () async {
-      when(() => mockUserLocalPort.getLocalUser()).thenAnswer((_) async => null);
+        final session = await adapter.validateOfflineSession();
 
-      final session = await adapter.validateOfflineSession();
-
-      expect(session, isNull);
-    });
+        expect(session, isNull);
+      },
+    );
   });
 }

@@ -33,6 +33,7 @@ RegisterUserDto? buildRegisterUserDto({
   required int? userType,
   required String? studyArea,
   required String? otherCareer,
+  bool externalProvider = false,
   int userRoleId = RegisterUserDto.defaultRegistrationRoleId,
 }) {
   final first = firstName.trim();
@@ -41,8 +42,10 @@ RegisterUserDto? buildRegisterUserDto({
   final area = studyArea?.trim();
   final other = otherCareer?.trim() ?? '';
 
-  if (first.isEmpty || last.isEmpty || mail.isEmpty) return null;
-  if (password != confirmPassword) return null;
+  if (first.isEmpty || last.isEmpty) return null;
+  if (!externalProvider && (mail.isEmpty || password != confirmPassword)) {
+    return null;
+  }
   if (userType == null) return null;
   if (area == null || area.isEmpty) return null;
   if (area == _otherCareerSentinel && other.isEmpty) return null;
@@ -51,7 +54,7 @@ RegisterUserDto? buildRegisterUserDto({
 
   return RegisterUserDto(
     fullName: '$first $last'.trim(),
-    email: mail,
+    email: externalProvider ? '' : mail,
     fieldOfStudy: resolvedField,
     graduated: userType == 1,
     userRoleId: userRoleId,

@@ -40,7 +40,7 @@ class FakeAuthAdapter implements AuthPort {
     final normalizedEmail = email.trim().toLowerCase();
     final all = [..._seed, ..._runtime];
     final match = all.where(
-          (u) => u.email == normalizedEmail && u.password == password,
+      (u) => u.email == normalizedEmail && u.password == password,
     );
 
     if (match.isEmpty) {
@@ -51,10 +51,19 @@ class FakeAuthAdapter implements AuthPort {
     }
 
     _activeUser = match.first.toUser(
-      token: 'fake-jwt-${match.first.id}-${DateTime.now().millisecondsSinceEpoch}',
+      token:
+          'fake-jwt-${match.first.id}-${DateTime.now().millisecondsSinceEpoch}',
       tokenExpiry: DateTime.now().add(const Duration(hours: 8)),
     );
     return _activeUser!;
+  }
+
+  @override
+  Future<ExternalAuthResult?> loginWithExternalProvider() async {
+    throw const AuthException(
+      message: 'Google no está disponible en el modo de desarrollo.',
+      type: AuthErrorType.unknown,
+    );
   }
 
   @override
@@ -99,6 +108,11 @@ class FakeAuthAdapter implements AuthPort {
       tokenExpiry: DateTime.now().add(const Duration(hours: 8)),
     );
     return _activeUser!;
+  }
+
+  @override
+  Future<void> updateProfile(User user) async {
+    _activeUser = user;
   }
 
   @override

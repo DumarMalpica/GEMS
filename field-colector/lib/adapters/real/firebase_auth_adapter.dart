@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:google_sign_in/google_sign_in.dart' as google;
 import '../../domain/entities/user.dart';
 import '../../domain/entities/role.dart';
 import '../../domain/ports/auth_port.dart';
@@ -8,7 +9,7 @@ import '../../domain/ports/user_local_port.dart';
 const Duration _persistedSessionValidity = Duration(days: 30);
 
 /// Adaptador concreto que implementa [AuthPort] utilizando Firebase Authentication.
-/// 
+///
 /// Esta clase encapsula toda la interacción con el SDK de Firebase Auth, manejando
 /// el inicio de sesión, registro, cierre de sesión y la validación de la sesión actual.
 class FirebaseAuthAdapter implements AuthPort {
@@ -17,17 +18,23 @@ class FirebaseAuthAdapter implements AuthPort {
 
   /// Puerto local inyectado para persistir la información del usuario en el dispositivo.
   final UserLocalPort _userLocalPort;
+  final google.GoogleSignIn _googleSignIn;
 
   /// Crea una nueva instancia de [FirebaseAuthAdapter] con las dependencias requeridas.
-  FirebaseAuthAdapter(this._firebaseAuth, this._userLocalPort);
+  FirebaseAuthAdapter(
+    this._firebaseAuth,
+    this._userLocalPort, {
+    google.GoogleSignIn? googleSignIn,
+  }) : _googleSignIn = googleSignIn ?? google.GoogleSignIn.instance;
 
   /// Inicia sesión utilizando un correo electrónico ([email]) y una contraseña ([password]).
-  /// 
+  ///
   /// Si es exitoso, crea un objeto [User] de dominio, lo guarda localmente y lo retorna.
   /// Si falla, lanza un [AuthException] traducido del error original de Firebase.
   @override
   Future<User> login(String email, String password) async {
     try {
+      final previousUser = await _userLocalPort.getRawLocalUser();
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -50,6 +57,9 @@ class FirebaseAuthAdapter implements AuthPort {
         role: Role.user,
         token: tokenResult.token,
         tokenExpiry: DateTime.now().add(_persistedSessionValidity),
+        profileComplete: previousUser?.id == fbUser.uid
+            ? previousUser!.profileComplete
+            : true,
         createdAt: fbUser.metadata.creationTime,
       );
 
@@ -66,8 +76,78 @@ class FirebaseAuthAdapter implements AuthPort {
     }
   }
 
+  @override
+  Future<ExternalAuthResult?> loginWithExternalProvider() async {
+    try {
+      final previousUser = await _userLocalPort.getRawLocalUser();
+      final account = await _googleSignIn.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null) {
+        throw const AuthException(
+          message: 'Google no devolvió credenciales válidas.',
+          type: AuthErrorType.unknown,
+        );
+      }
+
+      final credential = await _firebaseAuth.signInWithCredential(
+        fb.GoogleAuthProvider.credential(idToken: idToken),
+      );
+      final fbUser = credential.user;
+      if (fbUser == null) {
+        throw const AuthException(
+          message: 'No se pudo obtener la información del usuario.',
+          type: AuthErrorType.unknown,
+        );
+      }
+
+      final tokenResult = await fbUser.getIdTokenResult();
+      final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
+      final user = User(
+        id: fbUser.uid,
+        email: fbUser.email ?? '',
+        fullName: fbUser.displayName ?? 'Investigador',
+        role: previousUser?.id == fbUser.uid ? previousUser!.role : Role.user,
+        token: tokenResult.token,
+        tokenExpiry: DateTime.now().add(_persistedSessionValidity),
+        profileComplete: isNewUser
+            ? false
+            : (previousUser?.id == fbUser.uid
+                  ? previousUser!.profileComplete
+                  : true),
+        createdAt: fbUser.metadata.creationTime,
+      );
+      await _userLocalPort.saveUser(user);
+
+      return ExternalAuthResult(
+        user: user,
+        isNewUser: credential.additionalUserInfo?.isNewUser ?? false,
+      );
+    } on google.GoogleSignInException catch (e) {
+      if (e.code == google.GoogleSignInExceptionCode.canceled) return null;
+      throw AuthException(
+        message: e.description ?? 'No se pudo iniciar sesión con Google.',
+        type: AuthErrorType.unknown,
+      );
+    } on fb.FirebaseAuthException catch (e) {
+      if (e.code == 'web-context-canceled' ||
+          e.code == 'popup-closed-by-user' ||
+          e.code == 'sign_in_canceled' ||
+          e.code == 'canceled') {
+        return null;
+      }
+      throw _handleFirebaseError(e);
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException(
+        message: 'Error inesperado: $e',
+        type: AuthErrorType.unknown,
+      );
+    }
+  }
+
   /// Registra un nuevo usuario en Firebase Auth con los datos proporcionados.
-  /// 
+  ///
   /// El [fullName] se establece como el display name en Firebase. Una vez creado,
   /// el usuario se persiste de manera local y se retorna.
   @override
@@ -111,6 +191,34 @@ class FirebaseAuthAdapter implements AuthPort {
     }
   }
 
+  @override
+  Future<void> updateProfile(User user) async {
+    try {
+      final firebaseUser = _firebaseAuth.currentUser;
+      if (firebaseUser == null || firebaseUser.uid != user.id) {
+        throw const AuthException(
+          message: 'La sesión expiró. Inicia sesión de nuevo.',
+          type: AuthErrorType.sessionExpired,
+        );
+      }
+      final tokenResult = await firebaseUser.getIdTokenResult();
+      await firebaseUser.updateDisplayName(user.fullName);
+      await _userLocalPort.saveUser(
+        user.copyWith(
+          token: tokenResult.token,
+          tokenExpiry: DateTime.now().add(_persistedSessionValidity),
+        ),
+      );
+    } on fb.FirebaseAuthException catch (e) {
+      throw _handleFirebaseError(e);
+    } catch (e) {
+      throw AuthException(
+        message: 'No se pudo guardar el perfil: $e',
+        type: AuthErrorType.unknown,
+      );
+    }
+  }
+
   /// Cierra la sesión activa en Firebase y limpia los datos locales del usuario.
   @override
   Future<void> logout() async {
@@ -119,7 +227,7 @@ class FirebaseAuthAdapter implements AuthPort {
   }
 
   /// Obtiene el usuario actualmente autenticado en Firebase (si lo hay).
-  /// 
+  ///
   /// Si el token aún es válido, renueva la fecha de expiración de la sesión local
   /// y retorna el [User]. Retorna null si no hay sesión activa.
   @override
@@ -128,6 +236,7 @@ class FirebaseAuthAdapter implements AuthPort {
     if (fbUser == null) return null;
 
     try {
+      final localUser = await _userLocalPort.getRawLocalUser();
       final tokenResult = await fbUser.getIdTokenResult();
       final user = User(
         id: fbUser.uid,
@@ -136,6 +245,9 @@ class FirebaseAuthAdapter implements AuthPort {
         role: Role.user,
         token: tokenResult.token,
         tokenExpiry: DateTime.now().add(_persistedSessionValidity),
+        profileComplete: localUser?.id == fbUser.uid
+            ? localUser!.profileComplete
+            : true,
         createdAt: fbUser.metadata.creationTime,
       );
       await _userLocalPort.saveUser(user);
@@ -156,7 +268,7 @@ class FirebaseAuthAdapter implements AuthPort {
     return null;
   }
 
-  /// Convierte las excepciones específicas de Firebase Auth ([fb.FirebaseAuthException]) 
+  /// Convierte las excepciones específicas de Firebase Auth ([fb.FirebaseAuthException])
   /// a excepciones de dominio controladas ([AuthException]).
   AuthException _handleFirebaseError(fb.FirebaseAuthException e) {
     switch (e.code) {

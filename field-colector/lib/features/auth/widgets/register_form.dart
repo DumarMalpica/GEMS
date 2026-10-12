@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:field_colector/data/careers_asset.dart';
 import 'package:field_colector/domain/mappers/register_user_dto_builder.dart';
 import 'package:field_colector/domain/ports/auth_port.dart';
@@ -5,6 +7,7 @@ import 'package:field_colector/features/auth/providers/auth_provider.dart';
 import 'package:field_colector/features/manual/providers/manual_intro_provider.dart';
 import 'package:field_colector/features/auth/theme/auth_form_theme.dart';
 import 'package:field_colector/features/auth/widgets/gems_design.dart';
+import 'package:field_colector/features/auth/widgets/google_sign_in_button.dart';
 import 'package:field_colector/features/utilities/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +38,7 @@ class _RegisterFormState extends State<RegisterForm> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isSubmitting = false;
+  bool _isExternalProfile = false;
 
   void _onFormEdited() {
     context.read<Authprovider>().clearAuthFormError();
@@ -45,6 +49,16 @@ class _RegisterFormState extends State<RegisterForm> {
   void initState() {
     super.initState();
     _careersFuture = loadCareers();
+    final authUser = context.read<Authprovider>().user;
+    if (authUser != null && !authUser.profileComplete) {
+      _isExternalProfile = true;
+      final nameParts = authUser.fullName.trim().split(RegExp(r'\s+'));
+      _firstNameController.text = nameParts.isEmpty ? '' : nameParts.first;
+      _lastNameController.text = nameParts.length > 1
+          ? nameParts.skip(1).join(' ')
+          : '';
+      _emailController.text = authUser.email;
+    }
     for (final c in [
       _firstNameController,
       _lastNameController,
@@ -86,9 +100,11 @@ class _RegisterFormState extends State<RegisterForm> {
     final mail = _emailController.text.trim();
     final pwd = _passwordController.text;
     final confirm = _confirmPasswordController.text;
-    if (first.isEmpty || last.isEmpty || mail.isEmpty) return false;
-    if (!_registerEmailOk(mail)) return false;
-    if (pwd.isEmpty || confirm.isEmpty || pwd != confirm) return false;
+    if (first.isEmpty || last.isEmpty) return false;
+    if (!_isExternalProfile) {
+      if (mail.isEmpty || !_registerEmailOk(mail)) return false;
+      if (pwd.isEmpty || confirm.isEmpty || pwd != confirm) return false;
+    }
     if (_userType == null) return false;
     final area = _studyArea?.trim();
     if (area == null || area.isEmpty) return false;
@@ -103,11 +119,12 @@ class _RegisterFormState extends State<RegisterForm> {
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       email: _emailController.text,
-      password: _passwordController.text,
+      password: _isExternalProfile ? '' : _passwordController.text,
       confirmPassword: _confirmPasswordController.text,
       userType: _userType,
       studyArea: _studyArea,
       otherCareer: _otherCareer,
+      externalProvider: _isExternalProfile,
     );
     if (dto == null) return;
     await _submitRegistration(dto);
@@ -118,15 +135,31 @@ class _RegisterFormState extends State<RegisterForm> {
     final auth = context.read<Authprovider>();
     final manualIntro = context.read<ManualIntroProvider>();
     try {
-      await auth.register(dto);
-      if (auth.errorMessage == null && auth.isAuthenticated) {
+      if (_isExternalProfile) {
         final userId = auth.user?.id;
         if (userId != null && userId.isNotEmpty) {
+          unawaited(manualIntro.markPendingAfterRegistration(userId));
+        }
+        await auth.completeExternalProfile(dto);
+      } else {
+        await auth.register(dto);
+      }
+      if (auth.errorMessage == null &&
+          auth.isAuthenticated &&
+          (!_isExternalProfile || auth.user?.profileComplete == true)) {
+        final userId = auth.user?.id;
+        if (!_isExternalProfile && userId != null && userId.isNotEmpty) {
           await manualIntro.markPendingAfterRegistration(userId);
         }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cuenta creada. Bienvenido/a.')),
+          SnackBar(
+            content: Text(
+              _isExternalProfile
+                  ? 'Perfil completado. Bienvenido/a.'
+                  : 'Cuenta creada. Bienvenido/a.',
+            ),
+          ),
         );
       }
     } catch (_) {
@@ -267,9 +300,7 @@ class _RegisterFormState extends State<RegisterForm> {
                 child: GemsLabeledField(
                   label: 'Especifica tu carrera',
                   child: TextFormField(
-                    style: const TextStyle(
-                      color: AuthFormTheme.fieldTextColor,
-                    ),
+                    style: const TextStyle(color: AuthFormTheme.fieldTextColor),
                     decoration: AuthFormTheme.fieldDecoration(
                       hintText: 'Ingresa tu carrera',
                     ),
@@ -298,14 +329,20 @@ class _RegisterFormState extends State<RegisterForm> {
         final generalErr = _generalRegisterError(errMsg, errType);
 
         final emailFormatBad =
-            mailTrim.isNotEmpty && !_registerEmailOk(mailTrim);
-        final emailInvalid = emailFormatBad || emailServerErr != null;
-        final emailValid = mailTrim.isNotEmpty && !emailInvalid;
-        final emailErrorText =
-            emailFormatBad ? 'Correo no válido' : emailServerErr;
+            !_isExternalProfile &&
+            mailTrim.isNotEmpty &&
+            !_registerEmailOk(mailTrim);
+        final emailInvalid =
+            !_isExternalProfile && (emailFormatBad || emailServerErr != null);
+        final emailValid =
+            !_isExternalProfile && mailTrim.isNotEmpty && !emailInvalid;
+        final emailErrorText = _isExternalProfile
+            ? null
+            : (emailFormatBad ? 'Correo no válido' : emailServerErr);
 
         final confirmMismatch = _confirmPasswordMismatch();
-        final confirmValid = _confirmPasswordController.text.isNotEmpty &&
+        final confirmValid =
+            _confirmPasswordController.text.isNotEmpty &&
             !confirmMismatch &&
             _passwordController.text.isNotEmpty;
 
@@ -315,6 +352,30 @@ class _RegisterFormState extends State<RegisterForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (_isExternalProfile) ...[
+                const Text(
+                  'Completa tu perfil para continuar. Estos datos son '
+                  'necesarios para usar la aplicación.',
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _emailController.text,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => context.read<Authprovider>().logout(),
+                    icon: const Icon(Icons.logout, size: 16),
+                    label: const Text('Cerrar sesión'),
+                  ),
+                ),
+              ],
               if (generalErr != null) ...[
                 Text(
                   generalErr,
@@ -365,29 +426,31 @@ class _RegisterFormState extends State<RegisterForm> {
               ),
               const SizedBox(height: 14),
 
-              GemsLabeledField(
-                label: 'Correo',
-                child: TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: AuthFormTheme.fieldTextColor),
-                  decoration: AuthFormTheme.fieldDecoration(
-                    hintText: 'tu@correo.com',
-                    errorText: emailErrorText,
-                    borderColor: emailInvalid
-                        ? AppColors.error
-                        : (emailValid ? AppColors.semilleroDeepBlue : null),
-                    suffixIcon: emailValid
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: AppColors.semilleroDeepBlue,
-                            size: 18,
-                          )
-                        : const Icon(Icons.mail_outline, size: 18),
+              if (!_isExternalProfile) ...[
+                GemsLabeledField(
+                  label: 'Correo',
+                  child: TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    style: const TextStyle(color: AuthFormTheme.fieldTextColor),
+                    decoration: AuthFormTheme.fieldDecoration(
+                      hintText: 'tu@correo.com',
+                      errorText: emailErrorText,
+                      borderColor: emailInvalid
+                          ? AppColors.error
+                          : (emailValid ? AppColors.semilleroDeepBlue : null),
+                      suffixIcon: emailValid
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: AppColors.semilleroDeepBlue,
+                              size: 18,
+                            )
+                          : const Icon(Icons.mail_outline, size: 18),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+              ],
 
               GemsLabeledField(
                 label: 'Área de estudio',
@@ -395,74 +458,77 @@ class _RegisterFormState extends State<RegisterForm> {
               ),
               const SizedBox(height: 14),
 
-              GemsLabeledField(
-                label: 'Contraseña',
-                child: TextField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  style: const TextStyle(color: AuthFormTheme.fieldTextColor),
-                  decoration: AuthFormTheme.fieldDecoration(
-                    hintText: '••••••••',
-                    helperText: errType == AuthErrorType.weakPassword
-                        ? 'Use al menos 6 caracteres; combine letras y números.'
-                        : null,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 18,
+              if (!_isExternalProfile) ...[
+                GemsLabeledField(
+                  label: 'Contraseña',
+                  child: TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    style: const TextStyle(color: AuthFormTheme.fieldTextColor),
+                    decoration: AuthFormTheme.fieldDecoration(
+                      hintText: '••••••••',
+                      helperText: errType == AuthErrorType.weakPassword
+                          ? 'Use al menos 6 caracteres; combine letras y números.'
+                          : null,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 18,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
                 ),
-              ),
 
-              AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                alignment: Alignment.topCenter,
-                curve: Curves.easeOut,
-                child: _passwordController.text.isEmpty
-                    ? const SizedBox(width: double.infinity)
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: GemsLabeledField(
-                          label: 'Confirmar contraseña',
-                          child: TextField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscureConfirmPassword,
-                            style: const TextStyle(
-                              color: AuthFormTheme.fieldTextColor,
-                            ),
-                            decoration: AuthFormTheme.fieldDecoration(
-                              hintText: '••••••••',
-                              errorText: confirmMismatch
-                                  ? 'Las contraseñas no coinciden'
-                                  : null,
-                              borderColor: confirmMismatch
-                                  ? AppColors.error
-                                  : (confirmValid
-                                      ? AppColors.semilleroDeepBlue
-                                      : null),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirmPassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  size: 18,
-                                ),
-                                onPressed: () => setState(
-                                  () => _obscureConfirmPassword =
-                                      !_obscureConfirmPassword,
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  alignment: Alignment.topCenter,
+                  curve: Curves.easeOut,
+                  child: _passwordController.text.isEmpty
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: GemsLabeledField(
+                            label: 'Confirmar contraseña',
+                            child: TextField(
+                              controller: _confirmPasswordController,
+                              obscureText: _obscureConfirmPassword,
+                              style: const TextStyle(
+                                color: AuthFormTheme.fieldTextColor,
+                              ),
+                              decoration: AuthFormTheme.fieldDecoration(
+                                hintText: '••••••••',
+                                errorText: confirmMismatch
+                                    ? 'Las contraseñas no coinciden'
+                                    : null,
+                                borderColor: confirmMismatch
+                                    ? AppColors.error
+                                    : (confirmValid
+                                          ? AppColors.semilleroDeepBlue
+                                          : null),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirmPassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscureConfirmPassword =
+                                        !_obscureConfirmPassword,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-              ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               OutlinedButton(
@@ -475,8 +541,28 @@ class _RegisterFormState extends State<RegisterForm> {
                         width: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Crear cuenta  →'),
+                    : Text(
+                        _isExternalProfile
+                            ? 'Completar perfil  →'
+                            : 'Crear cuenta  →',
+                      ),
               ),
+              if (!_isExternalProfile) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Text('o'),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                ),
+                const GoogleSignInButton(),
+              ],
               const SizedBox(height: 16),
 
               const GemsStepIndicator(activeIndex: 0),

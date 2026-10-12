@@ -60,10 +60,16 @@ class _HomeScreenState extends State<HomeScreen> {
           return LoginScreen();
         }
 
+        if (!(auth.user?.profileComplete ?? false)) {
+          return LoginScreen(
+            key: const ValueKey('profile-completion'),
+            initialZone: LoginZone.register,
+            isProfileCompletion: true,
+          );
+        }
+
         return ManualIntroHost(
-          child: DashboardScreen(
-            locator: context.read<LocatorProvider>(),
-          ),
+          child: DashboardScreen(locator: context.read<LocatorProvider>()),
         );
       },
     );

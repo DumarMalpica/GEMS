@@ -4,6 +4,8 @@ import 'package:field_colector/domain/entities/user.dart';
 import 'package:field_colector/domain/mappers/login_user.dart';
 import 'package:field_colector/domain/mappers/register_user_dto_builder.dart';
 import 'package:field_colector/domain/ports/auth_port.dart';
+import 'package:field_colector/domain/ports/registration_role_port.dart';
+import 'package:field_colector/domain/ports/user_remote_port.dart';
 import 'package:flutter/material.dart';
 
 /// Estado de autenticación de la app: orquesta [AuthPort] (login, sesión, cierre).
@@ -19,11 +21,17 @@ import 'package:flutter/material.dart';
 class Authprovider extends ChangeNotifier {
   Authprovider({
     required AuthPort authPort,
+    required RegistrationRolePort registrationRole,
+    required UserRemotePort userRemote,
     required SessionValidationService sessionValidation,
   }) : _authPort = authPort,
-        _sessionValidation = sessionValidation;
+       _registrationRole = registrationRole,
+       _userRemote = userRemote,
+       _sessionValidation = sessionValidation;
 
   final AuthPort _authPort;
+  final RegistrationRolePort _registrationRole;
+  final UserRemotePort _userRemote;
   final SessionValidationService _sessionValidation;
 
   User? _user;
@@ -32,6 +40,8 @@ class Authprovider extends ChangeNotifier {
   String? _errorMessage;
   AuthErrorType? _lastAuthError;
   SessionStatus? _lastSessionStatus;
+  // ponytail: counter resets after process restart; persist it if cross-restart limits matter.
+  int _profileReads = 0;
 
   bool get isLoading => _isLoading;
 
@@ -48,8 +58,21 @@ class Authprovider extends ChangeNotifier {
   /// Último resultado de [restoreSession] (validación local). Null hasta primer restore.
   SessionStatus? get lastSessionStatus => _lastSessionStatus;
 
+  bool get canReadRemoteProfile => _profileReads < 2;
+  bool get hasReadRemoteProfile => _profileReads > 0;
+
   void _setUser(User user) {
+    if (_user?.id != user.id) {
+      _profileReads = 0;
+    }
     _user = user;
+  }
+
+  Future<User?> readRemoteProfile() async {
+    final current = _user;
+    if (current == null || !canReadRemoteProfile) return null;
+    _profileReads++;
+    return _userRemote.getUserById(current.id);
   }
 
   void _setAuthFailure(AuthException e) {
@@ -91,15 +114,29 @@ class Authprovider extends ChangeNotifier {
     _lastSessionStatus = null;
     _errorMessage = null;
     _lastAuthError = null;
+    _profileReads = 0;
     notifyListeners();
   }
 
   Future<void> login(LoginUser credentials) async {
     try {
-      final domainUser = await _authPort.login(
+      var domainUser = await _authPort.login(
         credentials.email,
         credentials.password,
       );
+      _setUser(domainUser);
+      try {
+        final remote = await readRemoteProfile();
+        if (remote != null) {
+          domainUser = remote.copyWith(
+            token: domainUser.token,
+            tokenExpiry: domainUser.tokenExpiry,
+          );
+          await _authPort.updateProfile(domainUser);
+        }
+      } catch (_) {
+        // Correo y contraseña mantienen acceso offline si Firestore no responde.
+      }
       _setUser(domainUser);
       _lastSessionStatus = null;
       _errorMessage = null;
@@ -108,6 +145,67 @@ class Authprovider extends ChangeNotifier {
     } on AuthException catch (e) {
       _user = null;
       _setAuthFailure(e);
+    } catch (_) {
+      _user = null;
+      _setAuthFailure(
+        const AuthException(
+          message: 'No se pudo cargar tu perfil. Intenta de nuevo.',
+          type: AuthErrorType.networkError,
+        ),
+      );
+    }
+  }
+
+  Future<bool> loginWithExternalProvider() async {
+    try {
+      final result = await _authPort.loginWithExternalProvider();
+      if (result == null) return false;
+
+      var user = result.user;
+      _setUser(user);
+      final remote = await readRemoteProfile();
+      final isNewProfile = result.isNewUser || remote == null;
+      if (isNewProfile) {
+        user = user.copyWith(
+          profileComplete: false,
+          role: _registrationRole.roleForRegistration(DateTime.now().toUtc()),
+        );
+        try {
+          await _userRemote.saveUser(user);
+        } catch (_) {
+          try {
+            await _authPort.updateProfile(user);
+          } catch (_) {}
+          rethrow;
+        }
+      } else {
+        user = remote.copyWith(
+          token: user.token,
+          tokenExpiry: user.tokenExpiry,
+          profileComplete: remote.profileComplete,
+        );
+        await _authPort.updateProfile(user);
+      }
+
+      _setUser(user);
+      _lastSessionStatus = null;
+      _errorMessage = null;
+      _lastAuthError = null;
+      notifyListeners();
+      return isNewProfile;
+    } on AuthException catch (e) {
+      _user = null;
+      _setAuthFailure(e);
+      return false;
+    } catch (_) {
+      _user = null;
+      _setAuthFailure(
+        AuthException(
+          message: 'No se pudo cargar tu perfil. Intenta de nuevo.',
+          type: AuthErrorType.networkError,
+        ),
+      );
+      return false;
     }
   }
 
@@ -120,7 +218,12 @@ class Authprovider extends ChangeNotifier {
         fullName: dto.fullName,
         fieldStudy: dto.fieldOfStudy,
       );
-      _setUser(domainUser);
+      final registered = domainUser.copyWith(
+        role: _registrationRole.roleForRegistration(DateTime.now().toUtc()),
+      );
+      await _userRemote.saveUser(registered);
+      await _authPort.updateProfile(registered);
+      _setUser(registered);
       _lastSessionStatus = null;
       _errorMessage = null;
       _lastAuthError = null;
@@ -128,6 +231,42 @@ class Authprovider extends ChangeNotifier {
     } on AuthException catch (e) {
       _user = null;
       _setAuthFailure(e);
+    }
+  }
+
+  Future<void> completeExternalProfile(RegisterUserDto dto) async {
+    final current = _user;
+    if (current == null) return;
+
+    try {
+      final completed = current.copyWith(
+        fullName: dto.fullName,
+        fieldStudy: dto.fieldOfStudy,
+        graduated: dto.graduated,
+        profileComplete: true,
+      );
+      if (completed.fullName.trim().split(RegExp(r'\s+')).length < 2 ||
+          (completed.fieldStudy?.trim().isEmpty ?? true)) {
+        throw const AuthException(
+          message: 'Completa tu nombre, apellido y área de estudio.',
+          type: AuthErrorType.unknown,
+        );
+      }
+      await _userRemote.saveUser(completed);
+      await _authPort.updateProfile(completed);
+      _user = completed;
+      _errorMessage = null;
+      _lastAuthError = null;
+      notifyListeners();
+    } on AuthException catch (e) {
+      _setAuthFailure(e);
+    } catch (_) {
+      _setAuthFailure(
+        const AuthException(
+          message: 'No se pudo guardar tu perfil. Intenta de nuevo.',
+          type: AuthErrorType.networkError,
+        ),
+      );
     }
   }
 
