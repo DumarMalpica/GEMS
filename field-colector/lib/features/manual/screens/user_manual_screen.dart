@@ -1149,7 +1149,7 @@ class _UserManualScreenState extends State<UserManualScreen> {
               ],
             ),
           ),
-          ?control,
+          if (control != null) control,
         ],
       ),
     );
